@@ -1,25 +1,73 @@
 require('dotenv').config()
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const express = require("express");
+const cors = require("cors");
 
+const app = express();
+
+const PORT = process.env.PORT || 3001;
 const uri = process.env.MONGO_URL
+
+
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
-async function run() {
+// const client = new MongoClient(uri, {
+//     serverApi: {
+//         version: ServerApiVersion.v1,
+//         strict: true,
+//         deprecationErrors: true,
+//     }
+// });
+// async function run() {
+//     try {
+//         // Connect the client to the server	(optional starting in v4.7)
+//         await client.connect();
+//         // Send a ping to confirm a successful connection
+//         await client.db("admin").command({ ping: 1 });
+//         console.log("Pinged your deployment. You successfully connected to MongoDB!");
+//     } finally {
+//         // Ensures that the client will close when you finish/error
+//         await client.close();
+//     }
+// }
+// run().catch(console.dir);
+
+app.use(cors());
+
+async function readItems() {
+    const uri = process.env.MONGO_URL
+    const client = new MongoClient(uri);
+
+    await client.connect();
+    const dbName = "Auction_CSIS3380";
+    const collectionName = "Items";
+
+    const database = client.db(dbName);
+    const collection = database.collection(collectionName);
+
+    // Read database
+
     try {
-        // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
-        // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        const cursor = await collection.find()
+        const results = await cursor.toArray();
+        console.log(results);
+        return results;
+
+    } catch (err) {
+        console.error("Error trying to read db: ", err)
+        return [];
     } finally {
-        // Ensures that the client will close when you finish/error
         await client.close();
     }
 }
-run().catch(console.dir);
+
+// run().catch(console.dir);
+
+app.get("/api/items", async (req, res) => {
+    const items = await readItems();
+    res.json(items);
+});
+
+app.listen(PORT, () => {
+    console.log(`Server listening on localhost:${PORT}`);
+});
