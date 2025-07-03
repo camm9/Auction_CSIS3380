@@ -35,3 +35,6 @@ coverage/
 
 # Optional: PM2 or other deployment files
 ecosystem.config.js
+
+# mongo
+tempCodeRunnerFile.js
