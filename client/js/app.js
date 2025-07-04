@@ -1,8 +1,26 @@
 const { useState, useEffect } = React;
 
 
-const ItemCard = (item) => {
+const ItemModal = ({ item, onClose }) => {
+    return (
+        <div class="item-modal-overlay">
+            <div class="item-modal">
+                <h2>{item.title}</h2>
+                <p>Current Bid: $</p>
+                <label>
+                    Your Bid:
+                    <input type="number" />
+                </label>
+                <div>
+                    <button>Place Bid</button>
+                    <button onClick={onClose}>Close</button>
+                </div>
+            </div>
+        </div>
+    )
+};
 
+const ItemCard = ({ item, onPlaceBid }) => {
     return (
         <div class="item-card">
             <div key={item._id}>
@@ -10,7 +28,7 @@ const ItemCard = (item) => {
                 <p>{item.description}</p>
                 <img src={item.imageUrl} alt={item.title} width="150" />
                 <p>Current Bid: $</p>
-                <button>Place Bid</button>
+                <button onClick={() => onPlaceBid(item)}>Place Bid</button>
             </div>
         </div>
     );
@@ -18,6 +36,7 @@ const ItemCard = (item) => {
 
 const App = () => {
     const [items, setItems] = useState([]);
+    const [selectedItems, setSelectedItems] = useState(null);
 
     useEffect(() => {
         fetch("http://localhost:5001/api/items")
@@ -32,10 +51,10 @@ const App = () => {
             <div class="item-list">
                 {items.map(item => <ItemCard
                     key={item._id}
-                    title={item.title}
-                    description={item.description}
-                    imageUrl={item.imageUrl} />
+                    item={item}
+                    onPlaceBid={setSelectedItems} />
                 )}
+                {selectedItems && <ItemModal item={selectedItems} onClose={() => setSelectedItems(null)} />}
             </div>
         </div>
     );
