@@ -1,7 +1,22 @@
 const { useState, useEffect } = React;
 
 
-const ItemCard = () => {
+const ItemCard = (item) => {
+
+    return (
+        <div class="item-card">
+            <div key={item._id}>
+                <h4>{item.title}</h4>
+                <p>{item.description}</p>
+                <img src={item.imageUrl} alt={item.title} width="150" />
+                <p>Current Bid: $</p>
+                <button>Place Bid</button>
+            </div>
+        </div>
+    );
+};
+
+const App = () => {
     const [items, setItems] = useState([]);
 
     useEffect(() => {
@@ -12,23 +27,16 @@ const ItemCard = () => {
     }, []);
 
     return (
-        <div class="item-card">
-            {items.map(item => (
-                <div key={item._id}>
-                    <h4>{item.title}</h4>
-                    <p>{item.description}</p>
-                    <img src={item.imageUrl} alt={item.title} width="150" />
-                </div>
-            ))}
-        </div>
-    );
-};
-
-const App = () => {
-    return (
         <div>
             <h1>Auction</h1>
-            <ItemCard />
+            <div class="item-list">
+                {items.map(item => <ItemCard
+                    key={item._id}
+                    title={item.title}
+                    description={item.description}
+                    imageUrl={item.imageUrl} />
+                )}
+            </div>
         </div>
     );
 };
