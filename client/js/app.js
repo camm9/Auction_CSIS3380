@@ -1,10 +1,58 @@
 const { useState, useEffect } = React;
 
+const SignIn = ({ onSuccess }) => {
+
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [mode, setMode] = useState('signin'); //are they registering or logging in
+    const [error, setError] = useState('');
+
+    const handleSubmit = async () => {
+        try {
+            setError('');
+            if (mode === 'signin') {
+                await window.signInUser(email, password);
+            } else {
+                await window.registerUser(email, password);
+            }
+            onSuccess();
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+    return (
+        <div className="item-modal-overlay">
+            <div className="item-modal">
+                <h2>{mode === 'signin' ? "Sign In" : "Register"}</h2>
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                /><br />
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                /><br />
+                Would you like to sign in or register?
+                <button onClick={handleSubmit}>
+                    {mode === 'signin' ? "Sign In" : "Register"}
+                </button>
+                <button onClick={() => setMode(mode === 'signin' ? 'register' : 'signin')}>
+                    {mode === 'signin' ? "Register" : "Sign In"}
+                </button>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+            </div>
+        </div>
+    );
+};
 
 const ItemModal = ({ item, onClose }) => {
     return (
-        <div class="item-modal-overlay">
-            <div class="item-modal">
+        <div className="item-modal-overlay">
+            <div className="item-modal">
                 <h2>{item.title}</h2>
                 <p>Current Bid: $</p>
                 <label>
@@ -17,12 +65,12 @@ const ItemModal = ({ item, onClose }) => {
                 </div>
             </div>
         </div>
-    )
+    );
 };
 
 const ItemCard = ({ item, onPlaceBid }) => {
     return (
-        <div class="item-card">
+        <div className="item-card">
             <div key={item._id}>
                 <h4>{item.title}</h4>
                 <p>{item.description}</p>
@@ -37,7 +85,9 @@ const ItemCard = ({ item, onPlaceBid }) => {
 const App = () => {
     const [items, setItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState(null);
+    const [isSignedIn, setIsSignedIn] = useState(false);
 
+    // Get items from mongo
     useEffect(() => {
         fetch("http://localhost:5001/api/items")
             .then(res => res.json())
@@ -45,10 +95,22 @@ const App = () => {
             .catch(err => console.error("Error fetching items:", err));
     }, []);
 
+    // check user status in Firebase
+    useEffect(() => {
+        const auth = window.auth;
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            setIsSignedIn(!!user);
+        })
+        return () => unsubscribe();
+    }, []);
+
+
     return (
         <div>
             <h1>Auction</h1>
-            <div class="item-list">
+            <button onClick={() => window.signOutUser()}>Sign Out</button>
+            {!isSignedIn && <SignIn onSuccess={() => setIsSignedIn(true)} />}
+            <div className="item-list">
                 {items.map(item => <ItemCard
                     key={item._id}
                     item={item}
