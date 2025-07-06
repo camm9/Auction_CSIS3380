@@ -14,8 +14,16 @@ const auth = getAuth(app);
 
 window.auth = auth;
 
-window.registerUser = function (email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+window.registerUser = async function (email, password) {
+    const userCredentials = createUserWithEmailAndPassword(auth, email, password);
+
+    // sends a post to sign-in to register user in mongoDB at same time as fb registration
+    await fetch("http://localhost:5001/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+    });
+    return userCredentials;
 };
 
 window.signInUser = function (email, password) {

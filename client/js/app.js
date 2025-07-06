@@ -10,12 +10,20 @@ const SignIn = ({ onSuccess }) => {
     const handleSubmit = async () => {
         try {
             setError('');
+            let userCredential;
             if (mode === 'signin') {
-                await window.signInUser(email, password);
+                userCredential = await window.signInUser(email, password);
             } else {
-                await window.registerUser(email, password);
+                userCredential = await window.registerUser(email, password);
             }
-            onSuccess();
+
+            await fetch("http://localhost:5001/sign-in", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email })
+            });
+
+            onSuccess(); //close modal
         } catch (err) {
             setError(err.message);
         }
@@ -23,15 +31,17 @@ const SignIn = ({ onSuccess }) => {
     return (
         <div className="item-modal-overlay">
             <div className="item-modal">
-                <h2>{mode === 'signin' ? "Sign In" : "Register"}</h2>
+                <h2>{mode === 'signin' ? "Sign In" : "Register A New Account"}</h2>
                 <input
                     type="email"
+                    name="email"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                 /><br />
                 <input
                     type="password"
+                    name="password"
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -44,6 +54,7 @@ const SignIn = ({ onSuccess }) => {
                     {mode === 'signin' ? "Register" : "Sign In"}
                 </button>
                 {error && <p style={{ color: 'red' }}>{error}</p>}
+
             </div>
         </div>
     );

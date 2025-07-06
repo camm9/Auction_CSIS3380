@@ -2,11 +2,24 @@ require('dotenv').config()
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const express = require("express");
 const cors = require("cors");
-
 const app = express();
+const admin = require("firebase-admin");
+const serviceAccount = require("./auctioncsis3380-firebase-adminsdk.json");
+
+
+app.use(cors());
+app.use(express.json());
+
 
 const PORT = process.env.PORT || 3001;
 const uri = process.env.MONGO_URL
+const client = new MongoClient(uri);
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+
+
 
 
 
@@ -32,12 +45,10 @@ const uri = process.env.MONGO_URL
 // }
 // run().catch(console.dir);
 
-app.use(cors());
+
+
 
 async function readItems() {
-    const uri = process.env.MONGO_URL
-    const client = new MongoClient(uri);
-
     await client.connect();
     const dbName = "Auction_CSIS3380";
     const collectionName = "Items";
@@ -50,7 +61,7 @@ async function readItems() {
     try {
         const cursor = await collection.find()
         const results = await cursor.toArray();
-        console.log(results);
+        // console.log(results);
         return results;
 
     } catch (err) {
@@ -61,7 +72,47 @@ async function readItems() {
     }
 }
 
-// run().catch(console.dir);
+
+app.post('/sign-in', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const collectionName = "Users";
+        const database = client.db(dbName);
+        const usersCollection = database.collection(collectionName);
+
+        let firebaseUser;
+        try {
+            firebaseUser = await admin.auth().getUserByEmail(email);
+        } catch (err) {
+            return res.status(401).send("User not found in fb")
+        }
+
+        let userRecord_mongo = await usersCollection.findOne({ email });
+        // console.log("userRecord_mongo before assignment:", userRecord_mongo);
+
+        if (!userRecord_mongo) {
+            const newUser = {
+                email: firebaseUser.email,
+                uid: firebaseUser.uid,
+                createdAt: new Date(),
+            };
+            await usersCollection.insertOne(newUser);
+            userRecord_mongo = newUser;
+            // console.log("newUser:", newUser);
+
+        }
+        res.status(200).json({ message: "Login Successful!", user: userRecord_mongo });
+    } catch (err) {
+        console.error("Error trying to sync users in mongo and fb: ", err)
+        res.status(500).send("Server error during user sync.");
+    } finally {
+        await client.close();
+    }
+})
+
 
 app.get("/api/items", async (req, res) => {
     const items = await readItems();
