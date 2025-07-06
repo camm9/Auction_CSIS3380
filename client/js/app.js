@@ -50,9 +50,9 @@ const SignIn = ({ onSuccess }) => {
                 <button onClick={handleSubmit}>
                     {mode === 'signin' ? "Sign In" : "Register"}
                 </button>
-                <button onClick={() => setMode(mode === 'signin' ? 'register' : 'signin')}>
+                <p className="sign-in-mode" onClick={() => setMode(mode === 'signin' ? 'register' : 'signin')}>
                     {mode === 'signin' ? "Register" : "Sign In"}
-                </button>
+                </p>
                 {error && <p style={{ color: 'red' }}>{error}</p>}
 
             </div>
