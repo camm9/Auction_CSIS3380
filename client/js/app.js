@@ -1,6 +1,52 @@
 const { useState, useEffect } = React;
 
-const SignIn = ({ onSuccess }) => {
+const DisplayNameModal = ({ onSubmit }) => {
+    const [name, setName] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            setError('Please enter a display name');
+            return;
+        }
+        try {
+            const uid = window.auth.currentUser.uid;
+            await fetch("http://localhost:5001/displayname", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uid, displayName: name })
+            });
+            onSubmit(name);
+
+        } catch (err) {
+            setError("Failed to save displayname: " + err.message);
+        }
+
+
+    };
+
+    return (
+        <div className="item-modal-overlay">
+            <div className="item-modal">
+                <h2>Choose A Display Name</h2>
+                <input
+                    type="text"
+                    placeholder="Enter display name"
+                    value={name}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                        setError('');
+                    }}
+                />
+                <button onClick={handleSave}>Save</button>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+            </div>
+        </div>
+    );
+};
+
+
+const SignIn = ({ onSuccess, onRegister }) => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -15,6 +61,7 @@ const SignIn = ({ onSuccess }) => {
                 userCredential = await window.signInUser(email, password);
             } else {
                 userCredential = await window.registerUser(email, password);
+                if (onRegister) onRegister();
             }
 
             await fetch("http://localhost:5001/sign-in", {
@@ -85,6 +132,7 @@ const ItemCard = ({ item, onPlaceBid }) => {
             <div key={item._id}>
                 <h4>{item.title}</h4>
                 <p>{item.description}</p>
+                <p>Seller: {item.createdBy}</p>
                 <img src={item.imageUrl} alt={item.title} width="150" />
                 <p>Current Bid: $</p>
                 <button onClick={() => onPlaceBid(item)}>Place Bid</button>
@@ -97,6 +145,7 @@ const App = () => {
     const [items, setItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState(null);
     const [isSignedIn, setIsSignedIn] = useState(false);
+    const [showDisplayNameModal, setShowDisplayNameModal] = useState(false)
 
     // Get items from mongo
     useEffect(() => {
@@ -119,8 +168,17 @@ const App = () => {
     return (
         <div>
             <h1>Auction</h1>
+            <a href="useraccount.html">Go to User Account</a>
             <button onClick={() => window.signOutUser()}>Sign Out</button>
-            {!isSignedIn && <SignIn onSuccess={() => setIsSignedIn(true)} />}
+            {!isSignedIn && <SignIn onSuccess={() => setIsSignedIn(true)} onRegister={() => setShowDisplayNameModal(true)} />}
+            {showDisplayNameModal && (
+                <DisplayNameModal
+                    onSubmit={(name) => {
+                        console.log("Display name saved:", name);
+                        setShowDisplayNameModal(false); // now it closes
+                    }}
+                />
+            )}
             <div className="item-list">
                 {items.map(item => <ItemCard
                     key={item._id}

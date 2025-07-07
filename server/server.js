@@ -72,6 +72,36 @@ async function readItems() {
     }
 }
 
+app.post("/displayname", async (req, res) => {
+    const { uid, displayName } = req.body;
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const collectionName = "Users";
+        const database = client.db(dbName);
+        const usersCollection = database.collection(collectionName);
+
+        let firebaseUser;
+        try {
+            firebaseUser = await admin.auth().getUser(uid);
+        } catch (err) {
+            return res.status(401).send("User not found in fb")
+        }
+        await usersCollection.updateOne({ uid }, { $set: { displayName: displayName } }); //update display name for uid
+
+        // let userRecord_mongo = await usersCollection.findOne({ uid });
+        // userRecord_mongo.updateOne({ displayname: displayname });
+        console.log("Mongo Record ", uid, "updated with displayname ", displayName)
+        res.status(200).send("Display name updated")
+
+    } catch (err) {
+        console.error("Error trying to update displayname: ", err)
+        res.status(500).send("Server error during displayname update.");
+    } finally {
+        await client.close();
+    }
+})
+
 
 app.post('/sign-in', async (req, res) => {
     const { email } = req.body;
