@@ -8,22 +8,26 @@ const UserInfo = ({ userInfo }) => {
             <h3> Account Details </h3>
             <p>Email: {userInfo.email}</p>
             <p>Display Name: {userInfo.displayName} </p>
+            <UserListings userInfo={userInfo} />
+            <UserBids userInfo={userInfo} />
         </div>
     );
 }
 
-const UserListings = () => {
+const UserListings = ({ userInfo }) => {
+    if (!userInfo) return <p>Loading user info....</p>;
+
     return (
         <div>
-            <h3> Your Listings </h3>
+            <h3> {userInfo.displayName.toUpperCase()}'s Listings </h3>
         </div>
     )
 }
 
-const UserBids = () => {
+const UserBids = ({ userInfo }) => {
     return (
         <div>
-            <h3> Your Bid History </h3>
+            <h3> {userInfo.displayName.toUpperCase()}'s Bid History </h3>
         </div>
     );
 }
@@ -56,8 +60,6 @@ const App = () => {
         <div>
             <h1> Your Account</h1>
             <UserInfo userInfo={userInfo} />
-            <UserListings />
-            <UserBids />
         </div>
     )
 }
