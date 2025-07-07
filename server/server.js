@@ -72,6 +72,30 @@ async function readItems() {
     }
 }
 
+async function readUserInfo(uid) {
+    await client.connect();
+    const dbName = "Auction_CSIS3380";
+    const collectionName = "Users";
+
+    const database = client.db(dbName);
+    const collection = database.collection(collectionName);
+
+    // Read database
+
+    try {
+        const results = await collection.findOne({ uid })
+        // console.log(results);
+        return results;
+
+    } catch (err) {
+        console.error("Error trying to read user info from db: ", err)
+        return null;
+    } finally {
+        await client.close();
+    }
+
+}
+
 app.post("/displayname", async (req, res) => {
     const { uid, displayName } = req.body;
     try {
@@ -89,8 +113,6 @@ app.post("/displayname", async (req, res) => {
         }
         await usersCollection.updateOne({ uid }, { $set: { displayName: displayName } }); //update display name for uid
 
-        // let userRecord_mongo = await usersCollection.findOne({ uid });
-        // userRecord_mongo.updateOne({ displayname: displayname });
         console.log("Mongo Record ", uid, "updated with displayname ", displayName)
         res.status(200).send("Display name updated")
 
@@ -143,6 +165,11 @@ app.post('/sign-in', async (req, res) => {
     }
 })
 
+
+app.get('/user/info/', async (req, res) => {
+    const userInfo = await readUserInfo(req.query.uid);
+    res.json(userInfo);
+})
 
 app.get("/api/items", async (req, res) => {
     const items = await readItems();

@@ -10,6 +10,7 @@ const DisplayNameModal = ({ onSubmit }) => {
             return;
         }
         try {
+            // This will create a display name for the user in mongo and not in FB
             const uid = window.auth.currentUser.uid;
             await fetch("http://localhost:5001/displayname", {
                 method: "POST",
@@ -163,7 +164,6 @@ const App = () => {
         })
         return () => unsubscribe();
     }, []);
-
 
     return (
         <div>
