@@ -19,10 +19,6 @@ admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
 
-
-
-
-
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 // const client = new MongoClient(uri, {
 //     serverApi: {
@@ -44,8 +40,6 @@ admin.initializeApp({
 //     }
 // }
 // run().catch(console.dir);
-
-
 
 
 async function readItems() {
@@ -95,6 +89,45 @@ async function readUserInfo(uid) {
     }
 
 }
+
+app.post('/create-new-listing', async (req, res) => {
+    const { uid, title, description, imageUrl, createdBy, startingBid, endAt } = req.body;
+    const createdAt = Date.now();
+    const isClosed = false;
+    const winningBid = null;
+
+    const newItemListing = {
+        uid,
+        title,
+        description,
+        imageUrl,
+        createdBy,
+        startingBid,
+        endAt,
+        createdAt,
+        isClosed,
+        winningBid
+    }
+
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const collectionName = "Items";
+        const database = client.db(dbName);
+        const itemsCollection = database.collection(collectionName);
+
+        await itemsCollection.insertOne(newItemListing);
+
+        console.log("Mongo Record ", newItemListing)
+        res.status(200).send("New Listing Created")
+
+    } catch (err) {
+        console.error("Error trying to create new listing: ", err)
+        res.status(500).send("Server error during creation of new listing.");
+    } finally {
+        await client.close();
+    }
+})
 
 app.post("/displayname", async (req, res) => {
     const { uid, displayName } = req.body;
