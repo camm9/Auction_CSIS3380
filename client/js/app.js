@@ -127,7 +127,9 @@ const ItemModal = ({ item, onClose }) => {
     );
 };
 
-const ItemCard = ({ item, onPlaceBid }) => {
+const ItemCard = ({ item, onPlaceBid, user }) => {
+    const isUsersItem = user && item.uid === user.uid; //create a boolean for whether user owns item or not
+
     return (
         <div className="item-card">
             <div key={item._id}>
@@ -136,7 +138,8 @@ const ItemCard = ({ item, onPlaceBid }) => {
                 <p>Seller: {item.createdBy}</p>
                 <img src={item.imageUrl} alt={item.title} width="150" />
                 <p>Current Bid: $</p>
-                <button onClick={() => onPlaceBid(item)}>Place Bid</button>
+                {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
+                {isUsersItem && <p>View your listing's details</p>}
             </div>
         </div>
     );
@@ -146,7 +149,10 @@ const App = () => {
     const [items, setItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState(null);
     const [isSignedIn, setIsSignedIn] = useState(false);
+    const [user, setUser] = useState(null);
     const [showDisplayNameModal, setShowDisplayNameModal] = useState(false)
+    const [userItems, setUserItems] = useState([]);
+    const [otherItems, setOtherItems] = useState([]);
 
     // Get items from mongo
     useEffect(() => {
@@ -161,9 +167,19 @@ const App = () => {
         const auth = window.auth;
         const unsubscribe = auth.onAuthStateChanged(user => {
             setIsSignedIn(!!user);
+            setUser(user);
         })
         return () => unsubscribe();
     }, []);
+
+    // Sort Items by uid, uid matches current user then they cannot bid
+    useEffect(() => {
+        if (!user || items.length === 0) return;
+        const userItems = items.filter(item => item.uid === user.uid);
+        const otherItems = items.filter(item => item.uid !== user.uid);
+        setOtherItems(otherItems);
+        setUserItems(userItems);
+    }, [user, items]);
 
     return (
         <div>
@@ -179,11 +195,22 @@ const App = () => {
                     }}
                 />
             )}
+            <h2> Your Listed Items</h2>
             <div className="item-list">
-                {items.map(item => <ItemCard
+                {userItems.map(item => <ItemCard
                     key={item._id}
                     item={item}
-                    onPlaceBid={setSelectedItems} />
+                    onPlaceBid={setSelectedItems}
+                    user={user} />
+                )}
+            </div>
+            <h2> Browse Items</h2>
+            <div className="item-list">
+                {otherItems.map(item => <ItemCard
+                    key={item._id}
+                    item={item}
+                    onPlaceBid={setSelectedItems}
+                    user={user} />
                 )}
                 {selectedItems && <ItemModal item={selectedItems} onClose={() => setSelectedItems(null)} />}
             </div>
