@@ -1,0 +1,85 @@
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #2c3e50;
+            /* Dark background */
+            color: #ecf0f1;
+            /* Light text */
+            text-align: center;
+        }
+
+        .item-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            /* Space between cards */
+        }
+
+        .item-card {
+            background-color: #34495e;
+            /* Darker card background */
+            border-radius: 10px;
+            padding: 15px;
+            width: 200px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease-in-out;
+            cursor: pointer;
+            /* Indicate it's clickable */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .item-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Modal background overlay */
+        .item-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        /* Modal box */
+        .item-modal {
+            background-color: #34495e;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Input field */
+        .item-modal input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        /* Buttons inside modal */
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .sign-in-mode {
+            cursor: pointer;
+            font-style: italic;
+            color: tomato;
+
+        }
