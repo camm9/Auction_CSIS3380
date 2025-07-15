@@ -36,9 +36,7 @@ const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
 
 
 const UserItems = ({ userInfo, item }) => {
-    const [selectedItem, setSelectedItem] = useState(null);
-
-
+    const [showDisplayModal, setShowDisplayModal] = useState(false);
     if (!userInfo) return <p>Loading user listing info....</p>;
     // console.log("UserItems:", item);
 
@@ -52,9 +50,20 @@ const UserItems = ({ userInfo, item }) => {
                 <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
                 <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                 <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
-                <button>Close Auction</button>
-                <button onClick={setSelectedItem}>View Bid History</button>
+                <button onClick={() => setShowDisplayModal(true)}>Close Auction</button>
+                <button>View Bid History</button>
             </div>
+            {showDisplayModal && (
+                <div className="item-modal-overlay">
+                    <div className="item-modal">
+                        <h3>Close Auction</h3>
+                        <p>Are you sure you want to close this auction?</p>
+                        <button>End Auction & Notify Winner </button>
+                        <p className="warning-message">Note: This will notify the highest bidder and close the auction.</p>
+                        <button onClick={() => setShowDisplayModal(false)}>Cancel</button>
+
+
+                    </div></div>)}
         </div>
 
     )
@@ -238,8 +247,6 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
 const App = () => {
     const [user, setUser] = useState(null);
     const [userInfo, setUserInfo] = useState(null);
-
-    const [items, setItems] = useState([]);
     const [userListings, setUserListings] = useState([]);
 
     // get user object from FB

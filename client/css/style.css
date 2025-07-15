@@ -54,6 +54,7 @@
         /* Modal box */
         .item-modal {
             background-color: #34495e;
+            color: inherit;
             padding: 20px;
             border-radius: 8px;
             max-width: 400px;
@@ -82,4 +83,11 @@
             font-style: italic;
             color: tomato;
 
+        }
+
+        /* Warning message for errors */
+        .warning-message {
+            color: red !important;
+            font-weight: bold;
+            margin-top: 10px;
         }
