@@ -36,10 +36,8 @@ async function readItems() {
         return results;
 
     } catch (err) {
-        console.error("Error trying to read db: ", err)
+        console.error("Error trying to read items from db: ", err)
         return [];
-    } finally {
-        await client.close();
     }
 }
 
@@ -61,10 +59,7 @@ async function readUserInfo(uid) {
     } catch (err) {
         console.error("Error trying to read user info from db: ", err)
         return null;
-    } finally {
-        await client.close();
     }
-
 }
 
 app.post('/create-new-listing', async (req, res) => {
@@ -101,8 +96,6 @@ app.post('/create-new-listing', async (req, res) => {
     } catch (err) {
         console.error("Error trying to create new listing: ", err)
         res.status(500).send("Server error during creation of new listing.");
-    } finally {
-        await client.close();
     }
 })
 
@@ -129,8 +122,6 @@ app.post("/displayname", async (req, res) => {
     } catch (err) {
         console.error("Error trying to update displayname: ", err)
         res.status(500).send("Server error during displayname update.");
-    } finally {
-        await client.close();
     }
 })
 
@@ -170,101 +161,8 @@ app.post('/sign-in', async (req, res) => {
     } catch (err) {
         console.error("Error trying to sync users in mongo and fb: ", err)
         res.status(500).send("Server error during user sync.");
-    } finally {
-        await client.close();
     }
 })
-
-// app.post('/place-bid', async (req,res) => {
-//     const {itemId, uid, bidAmount} = req.body;
-
-//     //Input validation
-//     if (!itemId || !uid || bidAmount === undefined) {
-//         return res.status(400).send("Please input a bid amount");
-//     }
-
-//     try {
-
-//         //Make sure bid isn't a negative number
-//         const numericBidAmount = Number(bidAmount);
-//         if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
-//             return res.status(400).send("Invalid bid amount");
-//         }
-
-//         if (!ObjectId.isValid(itemId)) {
-//             return res.status(400).send("Invalid item ID format");
-//         }
-
-//          const session = client.startSession();
-//         try {
-//             let result;
-//             await session.withTransaction(async () => {
-//                 // Get the current item with proper locking
-//                 const item = await itemsCollection.findOne(
-//                     { _id: itemObjectId },
-//                     { session }
-//                 );
-
-//                 if (!item) {
-//                     throw new Error("Item not found");
-//                 }
-
-//                 // Check auction status
-//                 if (item.isClosed) {
-//                     throw new Error("Auction for this item is closed");
-//                 }
-
-//                 // Check if bid is higher than current bid
-//                 const currentBid = item.currentBid || item.startingBid;
-//                 if (numericBidAmount <= currentBid) {
-//                     throw new Error(`Bid must be higher than $${currentBid}`);
-//                 }
-
-//                 // Create the new bid document
-//                 const newBid = {
-//                     itemId: itemObjectId,
-//                     userId: uid,
-//                     bidAmount: numericBidAmount,
-//                     bidTime: new Date(),
-//                     itemTitle: item.title
-//                 };
-
-//                 // Insert the bid
-//                 const bidResult = await bidsCollection.insertOne(newBid, { session });
-
-//                 // Update the item
-//                 const updateResult = await itemsCollection.updateOne(
-//                     { _id: itemObjectId },
-//                     { 
-//                         $set: { 
-//                             currentBid: numericBidAmount,
-//                             winningBid: bidResult.insertedId 
-//                         } 
-//                     },
-//                     { session }
-//                 );
-
-//                 result = {
-//                     bidId: bidResult.insertedId,
-//                     updated: updateResult.modifiedCount
-//                 };
-//             });
-
-//             res.status(200).json({
-//                 message: "Bid placed successfully",
-//                 ...result
-//             });
-//         } finally {
-//             await session.endSession();
-//         }
-//     } catch (err) {
-//         console.error("Error placing bid:", err);
-//         const status = err.message.includes("not found") ? 404 : 500;
-//         res.status(status).send(err.message);
-//     } finally {
-//         await client.close();
-//     }
-// });
 
 app.post('/place-bid', async (req, res) => {
     const { itemId, uid, bidAmount } = req.body;
@@ -343,10 +241,11 @@ app.post('/place-bid', async (req, res) => {
     } catch (err) {
         console.error("Error placing bid:", err);
         res.status(500).json({ error: err.message || "Internal Server Error" });
-    } finally {
-        await session.endSession();
-        await client.close();
     }
+    //  finally {
+    //     await session.endSession();
+    //     await client.close();
+    // }
 });
 
 app.get('/user/bids', async (req, res) => {
@@ -362,9 +261,10 @@ app.get('/user/bids', async (req, res) => {
     } catch (err) {
         console.error("Error fetching user bids:", err);
         res.status(500).send("Server error fetching bids");
-    } finally {
-        await client.close();
     }
+    // finally {
+    //     await client.close();
+    // }
 })
 
 
@@ -376,6 +276,14 @@ app.get('/user/info/', async (req, res) => {
 app.get("/api/items", async (req, res) => {
     const items = await readItems();
     res.json(items);
+});
+
+app.get("/api/user_items", async (req, res) => {
+    const userId = req.query.uid;
+    const items = await readItems();
+    const userItems = items.filter(item => item.uid === userId);
+    console.log("User's items:", userItems);
+    res.status(200).json(userItems);
 });
 
 app.listen(PORT, () => {

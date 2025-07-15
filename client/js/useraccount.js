@@ -1,6 +1,6 @@
 const { useState, useEffect } = React;
 
-const UserInfo = ({ userInfo }) => {
+const UserInfo = ({ userInfo, userListings }) => {
     if (!userInfo) return <p>Loading user info....</p>;
 
     return (
@@ -8,23 +8,53 @@ const UserInfo = ({ userInfo }) => {
             <h3> Account Details </h3>
             <p>Email: {userInfo.email}</p>
             <p>Display Name: {userInfo.displayName} </p>
-            <UserListings userInfo={userInfo} />
+            <UserListings userInfo={userInfo} userListings={userListings} />
             <UserBids userInfo={userInfo} />
         </div>
     );
 }
 
-const UserListings = ({ userInfo }) => {
+const UserListings = ({ userInfo, userListings }) => {
     if (!userInfo) return <p>Loading user info....</p>;
-
     return (
         <div>
             <h3> {userInfo.displayName.toUpperCase()}'s Listings </h3>
+            {userListings.map(item => (
+                <UserItems
+                    key={item._id}
+                    item={item}
+                    userInfo={userInfo}
+                />
+            ))}
             <CreateANewListing userInfo={userInfo} />
         </div>
     )
 }
 
+
+const UserItems = ({ userInfo, item }) => {
+    if (!userInfo) return <p>Loading user listing info....</p>;
+    // console.log("UserItems:", item);
+
+    return (
+        <div className="user-item-list">
+            <div className="item-card">
+                <h4>{item.title}</h4>
+                <img src={item.imageUrl} alt={item.title} width="150" />
+                <p>{item.description}</p>
+                <p>Current Bid: {item.currentBid ? `$${item.currentBid}` : "No bids yet."}</p>
+                <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
+                <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
+                <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
+                <button>Close Auction</button>
+                <button>View Bid History</button>
+            </div>
+        </div>
+
+    )
+
+
+}
 const UserBids = ({ userInfo }) => {
     const [userBids, setUserBids] = useState([]);
     const [error, setError] = useState('');
@@ -198,6 +228,12 @@ const App = () => {
     const [user, setUser] = useState(null);
     const [userInfo, setUserInfo] = useState(null);
 
+    const [items, setItems] = useState([]);
+    const [userListings, setUserListings] = useState([]);
+
+    const [selectedItems, setSelectedItems] = useState(null);
+
+
     // get user object from FB
     useEffect(() => {
         const unsubscribe = window.auth.onAuthStateChanged((user) => {
@@ -209,19 +245,30 @@ const App = () => {
     //get user info from MongoDB
     useEffect(() => {
         if (!user) return;
-        console.log("Fetching userInfo for UID:", user.uid);
         fetch("http://localhost:5001/user/info?" + new URLSearchParams({ uid: user.uid }))
             .then(res => res.json())
-            .then(data => { console.log(data); setUserInfo(data) })
+            .then(data => { setUserInfo(data) })
             .catch(err => console.error("Error fetching user info:", err));
-    }, [user]); // run only when user changes ??
+    }, [user]);
 
+    // get items from MongoDB and sort for user listings
+    useEffect(() => {
+        if (!user) return;
+        // console.log("Fetching items for UID:", user.uid);
+        fetch("http://localhost:5001/api/user_items?" + new URLSearchParams({ uid: user.uid }))
+            .then(res => res.json())
+            .then(data => {
+                // console.log("Fetched items:", data);
+                setUserListings(data);
+            })
+            .catch(err => console.error("Error fetching items:", err));
+    }, [user]);
 
     return (
         <div>
             <h1> Your Account</h1>
             <a href="index.html">Go to Auction</a>
-            <UserInfo userInfo={userInfo} />
+            <UserInfo userInfo={userInfo} userListings={userListings} />
         </div>
     )
 }

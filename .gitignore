@@ -38,6 +38,7 @@ ecosystem.config.js
 
 # mongo
 tempCodeRunnerFile.js
+tempCodeRunnerFile.javascript
 
 # fb
 server/auctioncsis3380-firebase-adminsdk.json
