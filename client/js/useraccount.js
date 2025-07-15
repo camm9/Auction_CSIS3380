@@ -25,66 +25,6 @@ const UserListings = ({ userInfo }) => {
     )
 }
 
-// const UserBids = ({ userInfo }) => {
-//     const [userBid, setUserBids] = useState([])
-//     const [error, setError] = useState('')
-
-//     useEffect(() => {
-//         if (!userInfo) return;
-
-//         //Get user bid history
-//         const fetchBidHistory = async () => {
-//             try {
-//                 const answer = await fetch(`http://localhost:5001/user/bids?uid=${userInfo._id}`)
-//                 const data = await answer.json();
-
-//                 if(answer.ok) {
-//                     setUserBids(data);
-//                 } else {
-//                     setError(data.message || "There is no bid history")
-//                 }
-
-//             } catch (err) {
-//                 setError('Error finding user bid history')
-//             }
-//         };
-
-//         fetchBidHistory();
-//     }, [userInfo]);
-
-//     if(userBid === null) return <p>Loading user bid history...</p>
-
-//      return (
-//         <div>
-//             <h3>{userInfo.displayName ? userInfo.displayName.toUpperCase() : ''}'s Bid History</h3>
-//             {userBids.length === 0 ? (
-//                 <p>You have not placed any bids yet</p>
-//             ) : (
-//                 <div className="bid-list">
-//                     <table>
-//                         <thead>
-//                             <tr>
-//                                 <th>Item</th>
-//                                 <th>Bid Amount</th>
-//                                 <th>Time</th>
-//                             </tr>
-//                         </thead>
-//                         <tbody>
-//                             {userBids.map(bid => (
-//                                 <tr key={bid._id}>
-//                                     <td>{bid.itemTitle}</td>
-//                                     <td>${bid.bidAmount.toFixed(2)}</td>
-//                                     <td>{new Date(bid.bidTime).toLocaleString()}</td>
-//                                 </tr>
-//                             ))}
-//                         </tbody>
-//                     </table>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// };
-
 const UserBids = ({ userInfo }) => {
     const [userBids, setUserBids] = useState([]);
     const [error, setError] = useState('');
@@ -280,6 +220,7 @@ const App = () => {
     return (
         <div>
             <h1> Your Account</h1>
+            <a href="index.html">Go to Auction</a>
             <UserInfo userInfo={userInfo} />
         </div>
     )
