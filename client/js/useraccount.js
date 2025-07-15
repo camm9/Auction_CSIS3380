@@ -1,6 +1,6 @@
 const { useState, useEffect } = React;
 
-const UserInfo = ({ userInfo, userListings }) => {
+const UserInfo = ({ userInfo, userListings, fetchUserListings, user }) => {
     if (!userInfo) return <p>Loading user info....</p>;
 
     return (
@@ -8,13 +8,13 @@ const UserInfo = ({ userInfo, userListings }) => {
             <h3> Account Details </h3>
             <p>Email: {userInfo.email}</p>
             <p>Display Name: {userInfo.displayName} </p>
-            <UserListings userInfo={userInfo} userListings={userListings} />
+            <UserListings userInfo={userInfo} userListings={userListings} fetchUserListings={fetchUserListings} user={user} />
             <UserBids userInfo={userInfo} />
         </div>
     );
 }
 
-const UserListings = ({ userInfo, userListings }) => {
+const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
     if (!userInfo) return <p>Loading user info....</p>;
     return (
         <div>
@@ -26,13 +26,19 @@ const UserListings = ({ userInfo, userListings }) => {
                     userInfo={userInfo}
                 />
             ))}
-            <CreateANewListing userInfo={userInfo} />
+            <CreateANewListing userInfo={userInfo}
+                userListings={userListings}
+                fetchUserListings={fetchUserListings}
+                user={user} />
         </div>
     )
 }
 
 
 const UserItems = ({ userInfo, item }) => {
+    const [selectedItem, setSelectedItem] = useState(null);
+
+
     if (!userInfo) return <p>Loading user listing info....</p>;
     // console.log("UserItems:", item);
 
@@ -47,7 +53,7 @@ const UserItems = ({ userInfo, item }) => {
                 <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                 <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
                 <button>Close Auction</button>
-                <button>View Bid History</button>
+                <button onClick={setSelectedItem}>View Bid History</button>
             </div>
         </div>
 
@@ -116,7 +122,7 @@ const UserBids = ({ userInfo }) => {
     );
 };
 
-const CreateANewListing = ({ userInfo }) => {
+const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
     const [error, setError] = useState('');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -159,6 +165,11 @@ const CreateANewListing = ({ userInfo }) => {
             setDate('');
             setTime('');
             setStartingBid('');
+
+            // Refresh user listings
+            if (fetchUserListings && user) {
+                fetchUserListings(user.uid);
+            }
 
         } catch (err) {
             setError("Failed to save new listing: " + err.message);
@@ -231,9 +242,6 @@ const App = () => {
     const [items, setItems] = useState([]);
     const [userListings, setUserListings] = useState([]);
 
-    const [selectedItems, setSelectedItems] = useState(null);
-
-
     // get user object from FB
     useEffect(() => {
         const unsubscribe = window.auth.onAuthStateChanged((user) => {
@@ -252,23 +260,23 @@ const App = () => {
     }, [user]);
 
     // get items from MongoDB and sort for user listings
+    const fetchUserListings = (uid) => {
+        fetch("http://localhost:5001/api/user_items?" + new URLSearchParams({ uid }))
+            .then(res => res.json())
+            .then(data => setUserListings(data))
+            .catch(err => console.error("Error fetching items:", err));
+    };
+
     useEffect(() => {
         if (!user) return;
-        // console.log("Fetching items for UID:", user.uid);
-        fetch("http://localhost:5001/api/user_items?" + new URLSearchParams({ uid: user.uid }))
-            .then(res => res.json())
-            .then(data => {
-                // console.log("Fetched items:", data);
-                setUserListings(data);
-            })
-            .catch(err => console.error("Error fetching items:", err));
+        fetchUserListings(user.uid);
     }, [user]);
 
     return (
         <div>
             <h1> Your Account</h1>
             <a href="index.html">Go to Auction</a>
-            <UserInfo userInfo={userInfo} userListings={userListings} />
+            <UserInfo userInfo={userInfo} userListings={userListings} fetchUserListings={fetchUserListings} user={user} />
         </div>
     )
 }
