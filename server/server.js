@@ -1,5 +1,5 @@
 require('dotenv').config()
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require("express");
 const cors = require("cors");
 const app = express();
@@ -170,6 +170,198 @@ app.post('/sign-in', async (req, res) => {
     } catch (err) {
         console.error("Error trying to sync users in mongo and fb: ", err)
         res.status(500).send("Server error during user sync.");
+    } finally {
+        await client.close();
+    }
+})
+
+// app.post('/place-bid', async (req,res) => {
+//     const {itemId, uid, bidAmount} = req.body;
+
+//     //Input validation
+//     if (!itemId || !uid || bidAmount === undefined) {
+//         return res.status(400).send("Please input a bid amount");
+//     }
+
+//     try {
+
+//         //Make sure bid isn't a negative number
+//         const numericBidAmount = Number(bidAmount);
+//         if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
+//             return res.status(400).send("Invalid bid amount");
+//         }
+
+//         if (!ObjectId.isValid(itemId)) {
+//             return res.status(400).send("Invalid item ID format");
+//         }
+
+//          const session = client.startSession();
+//         try {
+//             let result;
+//             await session.withTransaction(async () => {
+//                 // Get the current item with proper locking
+//                 const item = await itemsCollection.findOne(
+//                     { _id: itemObjectId },
+//                     { session }
+//                 );
+
+//                 if (!item) {
+//                     throw new Error("Item not found");
+//                 }
+
+//                 // Check auction status
+//                 if (item.isClosed) {
+//                     throw new Error("Auction for this item is closed");
+//                 }
+
+//                 // Check if bid is higher than current bid
+//                 const currentBid = item.currentBid || item.startingBid;
+//                 if (numericBidAmount <= currentBid) {
+//                     throw new Error(`Bid must be higher than $${currentBid}`);
+//                 }
+
+//                 // Create the new bid document
+//                 const newBid = {
+//                     itemId: itemObjectId,
+//                     userId: uid,
+//                     bidAmount: numericBidAmount,
+//                     bidTime: new Date(),
+//                     itemTitle: item.title
+//                 };
+
+//                 // Insert the bid
+//                 const bidResult = await bidsCollection.insertOne(newBid, { session });
+
+//                 // Update the item
+//                 const updateResult = await itemsCollection.updateOne(
+//                     { _id: itemObjectId },
+//                     { 
+//                         $set: { 
+//                             currentBid: numericBidAmount,
+//                             winningBid: bidResult.insertedId 
+//                         } 
+//                     },
+//                     { session }
+//                 );
+
+//                 result = {
+//                     bidId: bidResult.insertedId,
+//                     updated: updateResult.modifiedCount
+//                 };
+//             });
+
+//             res.status(200).json({
+//                 message: "Bid placed successfully",
+//                 ...result
+//             });
+//         } finally {
+//             await session.endSession();
+//         }
+//     } catch (err) {
+//         console.error("Error placing bid:", err);
+//         const status = err.message.includes("not found") ? 404 : 500;
+//         res.status(status).send(err.message);
+//     } finally {
+//         await client.close();
+//     }
+// });
+
+app.post('/place-bid', async (req, res) => {
+    const { itemId, uid, bidAmount } = req.body;
+
+    if (!itemId || !uid || bidAmount === undefined) {
+        return res.status(400).json({ error: "Please input a bid amount" });
+    }
+
+    const numericBidAmount = Number(bidAmount);
+    if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
+        return res.status(400).json({ error: "Invalid bid amount" });
+    }
+
+    if (!ObjectId.isValid(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID format" });
+    }
+
+    const dbName = "Auction_CSIS3380";
+    const itemObjectId = new ObjectId(itemId);
+    const session = client.startSession();
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const itemsCollection = db.collection("Items");
+        const bidsCollection = db.collection("Bids");
+
+        let result;
+        await session.withTransaction(async () => {
+            const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+
+            if (!item) {
+                throw new Error("Item not found");
+            }
+            if (item.isClosed) {
+                throw new Error("Auction for this item is closed");
+            }
+
+            const currentBid = item.currentBid || item.startingBid;
+            if (numericBidAmount <= currentBid) {
+                throw new Error(`Bid must be higher than $${currentBid}`);
+            }
+
+            const newBid = {
+                itemId: itemObjectId,
+                userId: uid,
+                bidAmount: numericBidAmount,
+                bidTime: new Date(),
+                itemTitle: item.title
+            };
+
+            const bidResult = await bidsCollection.insertOne(newBid, { session });
+
+            const updateResult = await itemsCollection.updateOne(
+                { _id: itemObjectId },
+                {
+                    $set: {
+                        currentBid: numericBidAmount,
+                        winningBid: bidResult.insertedId
+                    }
+                },
+                { session }
+            );
+
+            result = {
+                bidId: bidResult.insertedId,
+                updated: updateResult.modifiedCount
+            };
+        });
+
+        res.status(200).json({
+            message: "Bid placed successfully",
+            ...result
+        });
+
+    } catch (err) {
+        console.error("Error placing bid:", err);
+        res.status(500).json({ error: err.message || "Internal Server Error" });
+    } finally {
+        await session.endSession();
+        await client.close();
+    }
+});
+
+app.get('/user/bids', async (req, res) => {
+    const uid = req.query.uid;
+    console.log("Received UID:", uid);
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const bidsCollection = client.db(dbName).collection("Bids");
+
+        const bids = await bidsCollection.find({ userId: uid }).toArray();
+        res.status(200).json(bids);
+    } catch (err) {
+        console.error("Error fetching user bids:", err);
+        res.status(500).send("Server error fetching bids");
     } finally {
         await client.close();
     }
