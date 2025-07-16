@@ -191,7 +191,6 @@ const ItemCard = ({ item, onPlaceBid, user }) => {
             <div key={item._id}>
                 <h4>{item.title}</h4>
                 <p>{item.description}</p>
-                <p>Seller: {item.createdBy}</p>
                 <img src={item.imageUrl} alt={item.title} width="150" />
                 <p>Current Bid: ${item.currentBid || item.startingBid}</p>
                 {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}

@@ -40,6 +40,37 @@ const UserItems = ({ userInfo, item }) => {
     if (!userInfo) return <p>Loading user listing info....</p>;
     // console.log("UserItems:", item);
 
+    if (!item) return <p>No items found. Try listing an item.</p>;
+
+    const endAuction = () => {
+        // Function to end the auction and notify the winner
+        let endTime = new Date(item.endAt);
+        fetch(`http://localhost:5001/end-auction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                itemId: item._id,
+                uid: userInfo.uid,
+                endTime: endTime.toISOString()
+            })
+
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Auction ended successfully and winner notified.");
+                    setShowDisplayModal(false);
+                    // Optionally, refresh user listings
+                    fetchUserListings(userInfo.uid);
+                } else {
+                    alert("Failed to end auction: " + data.message);
+                }
+            })
+            .catch(err => console.error("Error ending auction:", err));
+    }
+
+
+
     return (
         <div className="user-item-list">
             <div className="item-card">
@@ -58,12 +89,11 @@ const UserItems = ({ userInfo, item }) => {
                     <div className="item-modal">
                         <h3>Close Auction</h3>
                         <p>Are you sure you want to close this auction?</p>
-                        <button>End Auction & Notify Winner </button>
+                        <button onClick={() => endAuction()}>End Auction & Notify Winner </button>
                         <p className="warning-message">Note: This will notify the highest bidder and close the auction.</p>
                         <button onClick={() => setShowDisplayModal(false)}>Cancel</button>
-
-
-                    </div></div>)}
+                    </div>
+                </div>)}
         </div>
 
     )

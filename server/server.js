@@ -164,6 +164,67 @@ app.post('/sign-in', async (req, res) => {
     }
 })
 
+app.post('/end-auction', async (req, res) => {
+    const { itemId, uid, endTime } = req.body;
+    console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
+    // Validate input
+    if (!itemId || !uid || !endTime) {
+        return res.status(400).json({ error: "Please provide itemId, uid, and endTime" });
+    }
+
+    if (!ObjectId.isValid(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID format" });
+    }
+
+    const dbName = "Auction_CSIS3380";
+    const itemObjectId = new ObjectId(itemId);
+    const session = client.startSession();
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const itemsCollection = db.collection("Items");
+        const bidsCollection = db.collection("Bids")
+        // Check if the item exists and belongs to the user
+        const item = await itemsCollection.findOne({ _id: itemObjectId });
+        if (!item || item.uid !== uid) {
+            return res.status(404).json({ error: "Item not found" });
+        }
+        if (item.isClosed) {
+            return res.status(400).json({ error: "Auction for this item is already closed" });
+        }
+        // Find the highest bid for the item, if no bids exist, use the starting bid
+        const highestBid = item.currentBid || item.startingBid;
+
+        // Find the winner of the auction
+        let winnerUid = null;
+        const winningBid = await bidsCollection.findOne({ itemId: itemObjectId, bidAmount: highestBid });
+        if (!winningBid) {
+            console.log("No winning bid found for item:", itemId);
+        } else {
+            winnerUid = winningBid.userId;
+        }
+
+        // console.log("Winner UID: ", winnerUid, "Highest Bid: ", highestBid);
+        // Notify the winner via Firebase
+
+        // Update the item to mark it as closed
+        await itemsCollection.updateOne(
+            { _id: itemObjectId },
+            {
+                $set: { isClosed: true, endAt: new Date(endTime), winningBid: highestBid, winnerUid: winnerUid }
+            }
+        )
+
+    } catch (err) {
+        console.error("Error ending auction:", err);
+        return res.status(500).json({ error: "Internal Server Error while trying to end auction" });
+    }
+});
+
+
+
+
 app.post('/place-bid', async (req, res) => {
     const { itemId, uid, bidAmount } = req.body;
 
