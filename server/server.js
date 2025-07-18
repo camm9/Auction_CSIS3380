@@ -206,6 +206,7 @@ app.post('/end-auction', async (req, res) => {
         }
 
         // console.log("Winner UID: ", winnerUid, "Highest Bid: ", highestBid);
+
         // Notify the winner via Firebase
 
         // Update the item to mark it as closed
