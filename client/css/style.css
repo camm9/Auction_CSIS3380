@@ -72,20 +72,82 @@
             /* Green background for active listings */
         }
 
-        /* Input field */
-        .item-modal input[type="number"] {
+        /* Create Listing Form */
+        .form-create-listing-container {
+            background-color: #34495e;
+            border-radius: 8px;
+            padding: 40px;
             width: 100%;
-            padding: 6px;
-            margin-top: 5px;
-            margin-bottom: 15px;
-            box-sizing: border-box;
+            max-width: 400px;
+            margin: 50px auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            justify-content: center;
         }
 
+        input[type="text"],
+        input[type="url"],
+        input[type="number"],
+        input[type="date"],
+        input[type="time"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        input::placeholder {
+            color: #a0aec0;
+            font-weight: 400;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .datetime-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .datetime-group input {
+            flex: 1;
+        }
+
+
         /* Buttons inside modal */
-        button {
-            margin: 5px;
-            padding: 8px 12px;
+        button,
+        button:hover,
+        button:focus {
+            background-color: #2980b9;
+            /* Default blue color */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            margin: 10px auto;
             cursor: pointer;
+            transition: background-color 0.3s ease-out;
+        }
+
+        button:hover,
+        button:focus {
+            background-color: #2c7bff;
+            /* Darker blue on hover/focus */
+        }
+
+        /* Active button when clicked (optional) */
+        button:active {
+            background-color: #1a237e;
+            /* Even darker blue on active state */
         }
 
         .sign-in-mode {

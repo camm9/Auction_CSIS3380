@@ -278,7 +278,7 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
         }
     };
     return (
-        <div>
+        <div className="form-create-listing-container">
             <h3> Create A New Listing </h3>
             <form onSubmit={handleSave}>
                 <input
@@ -305,20 +305,23 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
                     required
                 />
                 <br />
-                <label>End Date: </label>
-                <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                />
-                <label>Time: </label>
-                <input
-                    type="time"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    required
-                />
+                <div className="datetime-group">
+                    <label>End Date: </label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        required
+                    />
+                    <label>Time: </label>
+                    <input
+                        type="time"
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        required
+                    />
+                </div>
+
                 <br />
                 <input
                     type="number"
