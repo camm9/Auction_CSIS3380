@@ -16,16 +16,26 @@ const UserInfo = ({ userInfo, userListings, fetchUserListings, user }) => {
 
 const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
     if (!userInfo) return <p>Loading user info....</p>;
+    // sort items so that active listings are at the top
+    const sortedItems = userListings.sort((a, b) => {
+        if (a.isClosed === b.isClosed) {
+            return 0; // Keep original order if both have same status
+        }
+        return a.isClosed ? 1 : -1; // Closed items go to the end
+    });
     return (
         <div>
             <h3> {userInfo.displayName.toUpperCase()}'s Listings </h3>
-            {userListings.map(item => (
-                <UserItems
-                    key={item._id}
-                    item={item}
-                    userInfo={userInfo}
-                />
-            ))}
+            <div className="item-list">
+                {sortedItems.map(item => (
+                    <UserItems
+                        key={item._id}
+                        item={item}
+                        userInfo={userInfo}
+                    />
+                ))}
+            </div>
+
             <CreateANewListing userInfo={userInfo}
                 userListings={userListings}
                 fetchUserListings={fetchUserListings}
@@ -68,7 +78,7 @@ const UserItems = ({ userInfo, item }) => {
                 } else {
                     // Server returned an error with JSON payload
                     console.log("Server error response:", data);
-                    throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+                    throw new Error(data.error || data.message || `Server error status: ${response.status}`);
                 }
             })
             .then(data => {
@@ -79,36 +89,50 @@ const UserItems = ({ userInfo, item }) => {
             })
             .catch(err => {
                 console.error("Error ending auction:", err);
-
-                // Display the server's error message directly
                 alert(err.message);
             });
     }
 
     return (
-        <div className="user-item-list">
-            <div className="item-card">
-                <h4>{item.title}</h4>
-                <img src={item.imageUrl} alt={item.title} width="150" />
-                <p>{item.description}</p>
-                <p>Current Bid: {item.currentBid ? `$${item.currentBid}` : "No bids yet."}</p>
-                <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
-                <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
-                <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
-                <button onClick={() => setShowDisplayModal(true)}>Close Auction</button>
-                <button>View Bid History</button>
-            </div>
-            {showDisplayModal && (
-                <div className="item-modal-overlay">
-                    <div className="item-modal">
-                        <h3>Close Auction</h3>
-                        <p>Are you sure you want to close this auction?</p>
-                        <button onClick={() => endAuction()}>End Auction & Notify Winner </button>
-                        <p className="warning-message">Note: This will notify the highest bidder and close the auction.</p>
-                        <button onClick={() => setShowDisplayModal(false)}>Cancel</button>
-                    </div>
+        <div>
+            {/* Active Auction */}
+            {!item.isClosed &&
+                (<div className="item-card active-listing">
+                    <h4>{item.title}</h4>
+                    <img src={item.imageUrl} alt={item.title} width="150" />
+                    <p>{item.description}</p>
+                    <p>Current Bid: {item.currentBid ? `$${item.currentBid}` : "No bids yet."}</p>
+                    <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
+                    <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
+                    <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
+                    <button onClick={() => setShowDisplayModal(true)}>Close Auction</button>
+                    <button>View Bid History</button>
                 </div>)}
-        </div>
+            {/* Closed Auction Items */}
+            {item.isClosed &&
+                (<div className="item-card closed-listing">
+                    <h4>{item.title}</h4>
+                    <img src={item.imageUrl} alt={item.title} width="150" />
+                    <p>{item.description}</p>
+                    <p>Highest Bid: {item.currentBid ? `$${item.currentBid}` : "No bids."}</p>
+                    <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
+                    <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
+                    <p>Ended At: {new Date(item.endAt).toLocaleString()}</p>
+                    <button>View Bid History</button>
+                </div>)}
+            {
+                showDisplayModal && (
+                    <div className="item-modal-overlay">
+                        <div className="item-modal">
+                            <h3>Close Auction</h3>
+                            <p>Are you sure you want to close this auction?</p>
+                            <button onClick={() => endAuction()}>End Auction & Notify Winner </button>
+                            <p className="warning-message">Note: This will notify the highest bidder and close the auction.</p>
+                            <button onClick={() => setShowDisplayModal(false)}>Cancel</button>
+                        </div>
+                    </div>)
+            }
+        </div >
 
     )
 }

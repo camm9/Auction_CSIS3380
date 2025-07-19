@@ -62,6 +62,16 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
 
+        .closed-listing {
+            background-color: #e93a2673;
+            /* Red background for closed listings */
+        }
+
+        .active-listing {
+            background-color: #22975382;
+            /* Green background for active listings */
+        }
+
         /* Input field */
         .item-modal input[type="number"] {
             width: 100%;
