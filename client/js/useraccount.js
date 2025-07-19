@@ -47,10 +47,36 @@ const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
 
 const UserItems = ({ userInfo, item }) => {
     const [showDisplayModal, setShowDisplayModal] = useState(false);
-    if (!userInfo) return <p>Loading user listing info....</p>;
-    // console.log("UserItems:", item);
+    const [winnerDisplayName, setWinnerDisplayName] = useState(null);
+    const [loadingWinner, setLoadingWinner] = useState(false);
 
+    if (!userInfo) return <p>Loading user listing info....</p>;
     if (!item) return <p>No items found. Try listing an item.</p>;
+
+    // Fetch winner display name when item is closed and has a winner
+    useEffect(() => {
+        const fetchWinnerName = async () => {
+            if (item.isClosed && item.winnerUid && !winnerDisplayName) {
+                setLoadingWinner(true);
+                try {
+                    const response = await fetch(`http://localhost:5001/user/info?uid=${item.winnerUid}`);
+                    if (!response.ok) {
+                        throw new Error(`Error fetching user info: ${response.statusText}`);
+                    }
+                    const data = await response.json();
+                    console.log("Winner display name data:", data.displayName);
+                    setWinnerDisplayName(data.displayName || "Unknown User");
+                } catch (error) {
+                    console.error("Error fetching winner display name:", error);
+                    setWinnerDisplayName("Error loading name");
+                } finally {
+                    setLoadingWinner(false);
+                }
+            }
+        };
+
+        fetchWinnerName();
+    }, [item.isClosed, item.winnerUid, winnerDisplayName]);
 
     const endAuction = () => {
         // Function to end the auction and notify the winner
@@ -115,7 +141,7 @@ const UserItems = ({ userInfo, item }) => {
                     <img src={item.imageUrl} alt={item.title} width="150" />
                     <p>{item.description}</p>
                     <p>Highest Bid: {item.currentBid ? `$${item.currentBid}` : "No bids."}</p>
-                    <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
+                    <p>Winner: {item.winnerUid ? winnerDisplayName : "No winner yet"}</p>
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ended At: {new Date(item.endAt).toLocaleString()}</p>
                     <button>View Bid History</button>

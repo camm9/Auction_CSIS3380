@@ -24,7 +24,7 @@ const transporter = createTransport({
 async function sendMail(to, subject, text) {
     try {
         const info = await transporter.sendMail({
-            from: "admin@csis3380auction.com",
+            from: "admin@csis3380auction.com", //This doesn't seem to work
             to: to,
             subject: subject,
             text: text,
