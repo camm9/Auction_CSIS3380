@@ -5,6 +5,9 @@ const cors = require("cors");
 const app = express();
 const admin = require("firebase-admin");
 const serviceAccount = require("./auctioncsis3380-firebase-adminsdk.json");
+const { createTransport } = require("nodemailer");
+const { sendMail } = require("./nodemailer.js");
+
 
 
 app.use(cors());
@@ -14,6 +17,16 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const uri = process.env.MONGO_URL
 const client = new MongoClient(uri);
+
+// Initialize Nodemailer transporter
+const transporter = createTransport({
+    service: "gmail",
+    auth: {
+        type: "login",
+        user: process.env.Google_user,
+        pass: process.env.Google_App_Password,
+    },
+});
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -187,10 +200,12 @@ app.post('/end-auction', async (req, res) => {
         const bidsCollection = db.collection("Bids")
         // Check if the item exists and belongs to the user
         const item = await itemsCollection.findOne({ _id: itemObjectId });
+        console.log("Item found in db:", item);
         if (!item || item.uid !== uid) {
             return res.status(404).json({ error: "Item not found" });
         }
         if (item.isClosed) {
+            console.log("Auction for this item is already closed");
             return res.status(400).json({ error: "Auction for this item is already closed" });
         }
         // Find the highest bid for the item, if no bids exist, use the starting bid
@@ -207,7 +222,26 @@ app.post('/end-auction', async (req, res) => {
 
         // console.log("Winner UID: ", winnerUid, "Highest Bid: ", highestBid);
 
-        // Notify the winner via Firebase
+        // Notify the winner via Nodemailer
+        if (winnerUid && highestBid) {
+            const winnerEmail = await readUserInfo(winnerUid).then(user => user.email);
+            console.log("Winner Email: ", winnerEmail);
+            try {
+                await sendWinnerEmail(winnerEmail, item.title, highestBid);
+                console.log("Winner email sent to: ", winnerEmail);
+
+            } catch (error) {
+                console.error("Error sending winner email:", error);
+            }
+        }
+
+        res.status(200).json({
+            message: "Auction ended successfully",
+            winnerUid,
+            highestBid
+        });
+
+
 
         // Update the item to mark it as closed
         await itemsCollection.updateOne(
@@ -223,6 +257,40 @@ app.post('/end-auction', async (req, res) => {
     }
 });
 
+sendWinnerEmail = async (winnerEmail, itemTitle, winningBid) => {
+    const to = winnerEmail;
+    const subject = `Congratulations! You won the auction for ${itemTitle}`;
+    const text = ` Dear User,\n\nCongratulations! You have won the auction for the ${itemTitle}
+    with a bid of $${winningBid}. Please visit the auction and confirm payment.\n\n`
+
+    try {
+        const info = await sendMail(to, subject, text);
+        console.log("Email sent successfully:", info);
+        return { success: true, info };
+
+    } catch (error) {
+        console.error("Error sending email:", error);
+        throw new Error("Failed to send email");
+    }
+}
+
+app.post('/api/send-winner-email', async (req, res) => {
+    console.log("Received request to send winner email");
+    const { winnerEmail, itemTitle, winningBid } = req.body;
+
+    if (!winnerEmail || !itemTitle || winningBid === undefined) {
+        return res.status(400).json({ error: "Please provide winnerEmail, itemTitle, and winningBid" });
+    }
+
+    try {
+        await sendWinnerEmail(winnerEmail, itemTitle, winningBid);
+        res.status(200).json({ message: "Email sent successfully" });
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to send email" });
+    }
+
+})
 
 
 

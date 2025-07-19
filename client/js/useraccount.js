@@ -44,32 +44,46 @@ const UserItems = ({ userInfo, item }) => {
 
     const endAuction = () => {
         // Function to end the auction and notify the winner
+
         let endTime = new Date(item.endAt);
+
+        const requestData = {
+            itemId: item._id,
+            uid: userInfo.uid,
+            endTime: endTime.toISOString()
+        };
+
+        console.log("Sending data to end auction:", requestData);
+
         fetch(`http://localhost:5001/end-auction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                itemId: item._id,
-                uid: userInfo.uid,
-                endTime: endTime.toISOString()
-            })
-
+            body: JSON.stringify(requestData)
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert("Auction ended successfully and winner notified.");
-                    setShowDisplayModal(false);
-                    // Optionally, refresh user listings
-                    fetchUserListings(userInfo.uid);
+            .then(async response => {
+                const data = await response.json();
+
+                if (response.ok) {
+                    return data;
                 } else {
-                    alert("Failed to end auction: " + data.message);
+                    // Server returned an error with JSON payload
+                    console.log("Server error response:", data);
+                    throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
                 }
             })
-            .catch(err => console.error("Error ending auction:", err));
+            .then(data => {
+                alert("Auction ended successfully and winner notified.");
+                setShowDisplayModal(false);
+                // Optionally, refresh user listings
+                fetchUserListings(userInfo.uid);
+            })
+            .catch(err => {
+                console.error("Error ending auction:", err);
+
+                // Display the server's error message directly
+                alert(err.message);
+            });
     }
-
-
 
     return (
         <div className="user-item-list">
@@ -97,9 +111,8 @@ const UserItems = ({ userInfo, item }) => {
         </div>
 
     )
-
-
 }
+
 const UserBids = ({ userInfo }) => {
     const [userBids, setUserBids] = useState([]);
     const [error, setError] = useState('');
