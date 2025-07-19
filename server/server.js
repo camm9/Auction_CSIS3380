@@ -225,9 +225,10 @@ app.post('/end-auction', async (req, res) => {
         // Notify the winner via Nodemailer
         if (winnerUid && highestBid) {
             const winnerEmail = await readUserInfo(winnerUid).then(user => user.email);
-            console.log("Winner Email: ", winnerEmail);
+            const winnerUsername = await readUserInfo(winnerUid).then(user => user.displayName || user.email);
+            console.log("Winner Email: ", winnerEmail, "Winner Username: ", winnerUsername);
             try {
-                await sendWinnerEmail(winnerEmail, item.title, highestBid);
+                await sendWinnerEmail(winnerEmail, item.title, highestBid, winnerUsername);
                 console.log("Winner email sent to: ", winnerEmail);
 
             } catch (error) {
@@ -240,8 +241,6 @@ app.post('/end-auction', async (req, res) => {
             winnerUid,
             highestBid
         });
-
-
 
         // Update the item to mark it as closed
         await itemsCollection.updateOne(
@@ -257,10 +256,10 @@ app.post('/end-auction', async (req, res) => {
     }
 });
 
-sendWinnerEmail = async (winnerEmail, itemTitle, winningBid) => {
-    const to = winnerEmail;
+sendWinnerEmail = async (winnerEmail, itemTitle, winningBid, winnerUsername) => {
+    const to = winnerEmail
     const subject = `Congratulations! You won the auction for ${itemTitle}`;
-    const text = ` Dear User,\n\nCongratulations! You have won the auction for the ${itemTitle}
+    const text = ` Dear ${winnerUsername},\n\nCongratulations! You have won the auction for the ${itemTitle}
     with a bid of $${winningBid}. Please visit the auction and confirm payment.\n\n`
 
     try {
