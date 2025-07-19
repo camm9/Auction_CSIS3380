@@ -187,16 +187,18 @@ const ItemCard = ({ item, onPlaceBid, user }) => {
     const isUsersItem = user && item.uid === user.uid; //create a boolean for whether user owns item or not
 
     return (
-        <div className="item-card">
-            <div key={item._id}>
-                <h4>{item.title}</h4>
-                <p>{item.description}</p>
-                <img src={item.imageUrl} alt={item.title} width="150" />
-                <p>Current Bid: ${item.currentBid || item.startingBid}</p>
-                {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
-                {isUsersItem && <p>View your listing's details</p>}
-            </div>
+        <div>{!item.isClosed && (
+            <div className="item-card">
+                <div key={item._id}>
+                    <h4>{item.title}</h4>
+                    <p>{item.description}</p>
+                    <img src={item.imageUrl} alt={item.title} width="150" />
+                    <p>Current Bid: ${item.currentBid || item.startingBid}</p>
+                    {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
+                </div>
+            </div>)}
         </div>
+
     );
 };
 
@@ -261,7 +263,7 @@ const App = () => {
                     }}
                 />
             )}
-            <h2> Your Listed Items</h2>
+            <h2> Your Active Listed Items</h2>
             <div className="item-list">
                 {userItems.map(item => <ItemCard
                     key={item._id}
