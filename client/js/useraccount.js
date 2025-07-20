@@ -53,6 +53,12 @@ const UserItems = ({ userInfo, item }) => {
     if (!userInfo) return <p>Loading user listing info....</p>;
     if (!item) return <p>No items found. Try listing an item.</p>;
 
+    // Helper function to safely format numbers
+    const formatPrice = (price) => {
+        const numPrice = parseFloat(price);
+        return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
+    };
+
     // Fetch winner display name when item is closed and has a winner
     useEffect(() => {
         const fetchWinnerName = async () => {
@@ -127,8 +133,8 @@ const UserItems = ({ userInfo, item }) => {
                     <h4>{item.title}</h4>
                     <img src={item.imageUrl} alt={item.title} width="150" />
                     <p>{item.description}</p>
-                    <p>Current Bid: {item.currentBid ? `$${item.currentBid}` : "No bids yet."}</p>
-                    <p>Starting Bid: ${item.startingBid.toFixed(2)}</p>
+                    <p>Current Bid: {item.currentBid ? `$${formatPrice(item.currentBid)}` : "No bids yet."}</p>
+                    <p>Starting Bid: ${formatPrice(item.startingBid)}</p>
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
                     <button onClick={() => setShowDisplayModal(true)}>Close Auction</button>
@@ -140,7 +146,7 @@ const UserItems = ({ userInfo, item }) => {
                     <h4>{item.title}</h4>
                     <img src={item.imageUrl} alt={item.title} width="150" />
                     <p>{item.description}</p>
-                    <p>Highest Bid: {item.currentBid ? `$${item.currentBid}` : "No bids."}</p>
+                    <p>Highest Bid: {item.currentBid ? `$${formatPrice(item.currentBid)}` : "No bids."}</p>
                     <p>Winner: {item.winnerUid ? winnerDisplayName : "No winner yet"}</p>
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ended At: {new Date(item.endAt).toLocaleString()}</p>
@@ -159,7 +165,6 @@ const UserItems = ({ userInfo, item }) => {
                     </div>)
             }
         </div >
-
     )
 }
 
@@ -233,6 +238,7 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
     const [time, setTime] = useState('');
     const [startingBid, setStartingBid] = useState('');
 
+
     const handleSave = async (e) => {
         e.preventDefault();
         const uid = window.auth.currentUser.uid;
@@ -244,8 +250,8 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
         const endAt = new Date(`${date}T${time}`).toISOString();
 
         try {
-            const uid = window.auth.currentUser.uid;
-            await fetch("http://localhost:5001/create-new-listing", {
+            // Create new listing
+            const response = await fetch("http://localhost:5001/create-new-listing", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -259,7 +265,16 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
                 })
             });
 
-            alert("New listing created!")
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || `Server error status: ${response.status}`);
+            }
+
+
+            console.log("New listing created:", data);
+            alert("New listing created successfully!");
+
             // Reset fields to create new listing
             setTitle('');
             setDescription('');
@@ -274,12 +289,15 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
             }
 
         } catch (err) {
+            console.error("Error creating new listing:", err);
             setError("Failed to save new listing: " + err.message);
+            alert("Error creating new listing: " + err.message);
         }
     };
     return (
         <div className="form-create-listing-container">
             <h3> Create A New Listing </h3>
+            <h2>Note: You may only have 30 active listings at a time.</h2>
             <form onSubmit={handleSave}>
                 <input
                     type="text"

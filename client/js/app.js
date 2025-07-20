@@ -113,6 +113,24 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    // Helper function to extract numeric values from MongoDB objects
+    const getNumericValue = (value) => {
+        if (typeof value === 'number') {
+            return value;
+        }
+        if (typeof value === 'object' && value !== null) {
+            if (value.$numberInt) return parseInt(value.$numberInt);
+            if (value.$numberDouble) return parseFloat(value.$numberDouble);
+            if (value.$numberDecimal) return parseFloat(value.$numberDecimal);
+        }
+        return 0;
+    };
+
+    const currentBid = getNumericValue(item.currentBid);
+    const startingBid = getNumericValue(item.startingBid);
+    const displayBid = currentBid || startingBid;
+    const minBidAmount = (currentBid || startingBid) + 1;
+
     //Ensure there is input
     const handlePlaceBid = async () => {
         if (!bidAmount || isNaN(bidAmount)) {
@@ -154,19 +172,14 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
         <div className="item-modal-overlay">
             <div className="item-modal">
                 <h2>{item.title}</h2>
-                <p>Current Bid: ${item.currentBid || item.startingBid}</p>
+                <p>Current Bid: ${displayBid}</p>
                 <label>
                     Your Bid:
                     <input
                         type="number"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        // min={item.currentBid ? item.currentBid + 1 : item.startingBid + 1}
-                        min={(typeof item.currentBid === 'number'
-                            ? item.currentBid
-                            : typeof item.startingBid === 'number'
-                                ? item.startingBid
-                                : 0) + 1}
+                        min={minBidAmount}
                     />
                 </label>
                 <div>
@@ -180,11 +193,25 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     );
 };
 
-
-
-
 const ItemCard = ({ item, onPlaceBid, user }) => {
-    const isUsersItem = user && item.uid === user.uid; //create a boolean for whether user owns item or not
+    const isUsersItem = user && item.uid === user.uid;
+
+    // Helper function to extract numeric values from MongoDB objects
+    const getNumericValue = (value) => {
+        if (typeof value === 'number') {
+            return value;
+        }
+        if (typeof value === 'object' && value !== null) {
+            if (value.$numberInt) return parseInt(value.$numberInt);
+            if (value.$numberDouble) return parseFloat(value.$numberDouble);
+            if (value.$numberDecimal) return parseFloat(value.$numberDecimal);
+        }
+        return 0;
+    };
+
+    const currentBid = getNumericValue(item.currentBid);
+    const startingBid = getNumericValue(item.startingBid);
+    const displayBid = currentBid || startingBid;
 
     return (
         <div>{!item.isClosed && (
@@ -193,12 +220,11 @@ const ItemCard = ({ item, onPlaceBid, user }) => {
                     <h4>{item.title}</h4>
                     <p>{item.description}</p>
                     <img src={item.imageUrl} alt={item.title} width="150" />
-                    <p>Current Bid: ${item.currentBid || item.startingBid}</p>
+                    <p>Current Bid: ${displayBid}</p>
                     {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
                 </div>
             </div>)}
         </div>
-
     );
 };
 

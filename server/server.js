@@ -81,6 +81,10 @@ app.post('/create-new-listing', async (req, res) => {
     const isClosed = false;
     const winningBid = null;
 
+    if (!uid || !title || !description || !imageUrl || !createdBy || !startingBid || !endAt) {
+        return res.status(400).json({ error: "Please provide all required fields: uid, title, description, imageUrl, createdBy, startingBid, endAt" });
+    };
+
     const newItemListing = {
         uid,
         title,
@@ -101,14 +105,24 @@ app.post('/create-new-listing', async (req, res) => {
         const database = client.db(dbName);
         const itemsCollection = database.collection(collectionName);
 
-        await itemsCollection.insertOne(newItemListing);
+        const activeListingsCount = await itemsCollection.countDocuments({ uid, isClosed: false });
 
-        console.log("Mongo Record ", newItemListing)
-        res.status(200).send("New Listing Created")
+        if (activeListingsCount >= 30) {
+            return res.status(400).json({ error: "You can only have 30 active listings at a time." });
+        } else {
+            await itemsCollection.insertOne(newItemListing);
+            console.log("Mongo Record ", newItemListing)
+            res.status(200).json({
+                message: "New Listing Created",
+                listing: newItemListing
+            });
+        }
 
     } catch (err) {
         console.error("Error trying to create new listing: ", err)
-        res.status(500).send("Server error during creation of new listing.");
+        res.status(500).json({
+            error: "Server error during creation of new listing."
+        });
     }
 })
 
@@ -414,6 +428,51 @@ app.get("/api/user_items", async (req, res) => {
     console.log("User's items:", userItems);
     res.status(200).json(userItems);
 });
+
+
+//Insert many items into the database
+// async function insertDocuments() {
+
+//     try {
+//         await client.connect();
+//         const dbName = "Auction_CSIS3380";
+//         const collectionName = "Items";
+//         const database = client.db(dbName);
+//         const itemsCollection = database.collection(collectionName);
+
+//         const documents = [
+//             { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur28", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur29", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur8", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur9", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur10", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur11", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur12", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur13", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur14", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur15", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur16", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur17", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur18", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur19", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur20", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur21", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur22", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur23", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur24", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur25", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur26", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+
+//         ];
+
+//         const result = await itemsCollection.insertMany(documents);
+//         console.log(`${result.insertedCount} documents inserted`);
+//     } finally {
+//         await client.close();
+//     }
+// }
+
+// insertDocuments().catch(console.error);
 
 app.listen(PORT, () => {
     console.log(`Server listening on localhost:${PORT}`);
