@@ -236,6 +236,7 @@ const App = () => {
     const [showDisplayNameModal, setShowDisplayNameModal] = useState(false)
     const [userItems, setUserItems] = useState([]);
     const [otherItems, setOtherItems] = useState([]);
+    const [showUserListings, setShowUserListings] = useState(true);
 
     // Get items from mongo
     useEffect(() => {
@@ -278,7 +279,7 @@ const App = () => {
     return (
         <div>
             <h1>Auction</h1>
-            <a href="useraccount.html">Go to User Account</a>
+            <a href="useraccount.html"><button> Go to User Account</button></a>
             <button onClick={() => window.signOutUser()}>Sign Out</button>
             {!isSignedIn && <SignIn onSuccess={() => setIsSignedIn(true)} onRegister={() => setShowDisplayNameModal(true)} />}
             {showDisplayNameModal && (
@@ -289,15 +290,21 @@ const App = () => {
                     }}
                 />
             )}
-            <h2> Your Active Listed Items</h2>
-            <div className="item-list">
-                {userItems.map(item => <ItemCard
-                    key={item._id}
-                    item={item}
-                    onPlaceBid={setSelectedItems}
-                    user={user} />
-                )}
-            </div>
+            <button onClick={() => setShowUserListings(!showUserListings)}>
+                {showUserListings ? "Hide Your Listings" : "Show Your Listings"}
+            </button>
+            {showUserListings && (
+                <div>
+                    <h2> Your Active Listed Items</h2>
+                    <div className="item-list">
+                        {userItems.map(item => <ItemCard
+                            key={item._id}
+                            item={item}
+                            onPlaceBid={setSelectedItems}
+                            user={user} />
+                        )}
+                    </div>
+                </div>)}
             <h2> Browse Items</h2>
             <div className="item-list">
                 {otherItems.map(item => <ItemCard

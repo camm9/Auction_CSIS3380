@@ -396,7 +396,7 @@ const App = () => {
     return (
         <div>
             <h1> Your Account</h1>
-            <a href="index.html">Go to Auction</a>
+            <a href="index.html"><button>Go to Auction</button></a>
             <UserInfo userInfo={userInfo} userListings={userListings} fetchUserListings={fetchUserListings} user={user} />
         </div>
     )
