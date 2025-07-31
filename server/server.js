@@ -75,12 +75,12 @@ async function readUserInfo(uid) {
 }
 
 app.post('/create-new-listing', async (req, res) => {
-    const { uid, title, description, imageUrl, createdBy, startingBid, endAt } = req.body;
+    const { uid, title, description, imageUrl, createdBy, startingBid, endAt, itemCategory } = req.body;
     const createdAt = Date.now();
     const isClosed = false;
     const winningBid = null;
 
-    if (!uid || !title || !description || !imageUrl || !createdBy || !startingBid || !endAt) {
+    if (!uid || !title || !description || !imageUrl || !createdBy || !startingBid || !endAt || !itemCategory) {
         return res.status(400).json({ error: "Please provide all required fields: uid, title, description, imageUrl, createdBy, startingBid, endAt" });
     };
 
@@ -92,6 +92,7 @@ app.post('/create-new-listing', async (req, res) => {
         sellerDisplayName: createdBy,
         startingBid,
         endAt,
+        itemCategory,
         createdAt,
         isClosed,
         winningBid

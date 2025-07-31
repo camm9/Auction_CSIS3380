@@ -316,15 +316,11 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
         }
     };
 
-    const formatPrice = (price) => {
-        const numPrice = parseFloat(price);
-        return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
-    };
     return (
         <div className="item-modal-overlay">
             <div className="item-modal">
                 <h2>{item.title}</h2>
-                <p>Current Bid: ${displayBid}</p>
+                <p>Current Bid: ${displayBid.toFixed(2)}</p>
                 {activeBidsCount >= 5 && (
                     <p style={{ color: 'red' }}>
                         You have reached your limit of 5 active bids
@@ -359,7 +355,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
                                             <tbody>
                                                 {userBidHistory.map((bid, index) => (
                                                     <tr key={bid._id}>
-                                                        <td>${formatPrice(bid.bidAmount)}</td>
+                                                        <td>${bid.bidAmount.toFixed(2)}</td>
                                                         <td>{new Date(bid.bidTime).toLocaleString()}</td>
                                                         <td>
                                                             {bid.bidAmount === currentBid ? (
@@ -386,6 +382,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
                         min={minBidAmount}
+                        step="0.01"
                         disabled={activeBidsCount >= 5} // Disable input if limit reached
                     />
                 </label>
@@ -432,7 +429,7 @@ const ItemCard = ({ item, onPlaceBid, user }) => {
                     <h4>{item.title}</h4>
                     <p>{item.description}</p>
                     <img src={item.imageUrl} alt={item.title} width="150" />
-                    <p>Current Bid: ${displayBid}</p>
+                    <p>Current Bid: ${displayBid.toFixed(2)}</p>
                     {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
                 </div>
             </div>)}

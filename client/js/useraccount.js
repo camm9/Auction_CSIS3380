@@ -167,10 +167,10 @@ const UserItems = ({ userInfo, item }) => {
             }
             {
                 showBidHistoryModal && (
-                    <BidHistoryModal 
-                        itemId={item._id} 
+                    <BidHistoryModal
+                        itemId={item._id}
                         itemTitle={item.title}
-                        onClose={() => setShowBidHistoryModal(false)} 
+                        onClose={() => setShowBidHistoryModal(false)}
                     />
                 )
             }
@@ -187,12 +187,12 @@ const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
         const fetchBidHistory = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`http://localhost:5001/item/bid-history?itemId=${itemId}`);
-                
+                const response = await fetch(`http://localhost:5001/api/item/bid-history?itemId=${itemId}`);
+
                 if (!response.ok) {
                     throw new Error(`Error fetching bid history: ${response.statusText}`);
                 }
-                
+
                 const data = await response.json();
                 setBidHistory(data);
             } catch (error) {
@@ -217,11 +217,11 @@ const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
         <div className="item-modal-overlay">
             <div className="item-modal bid-history-modal">
                 <h3>Bid History for "{itemTitle}"</h3>
-                
+
                 {loading && <p>Loading bid history...</p>}
-                
+
                 {error && <p style={{ color: 'red' }}>{error}</p>}
-                
+
                 {!loading && !error && (
                     <div className="bid-history-content">
                         {bidHistory.length === 0 ? (
@@ -258,7 +258,7 @@ const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
                         )}
                     </div>
                 )}
-                
+
                 <div className="modal-actions">
                     <button onClick={onClose}>Close</button>
                 </div>
@@ -270,6 +270,11 @@ const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
 const UserBids = ({ userInfo }) => {
     const [userBids, setUserBids] = useState([]);
     const [error, setError] = useState('');
+
+    const formatPrice = (price) => {
+        const numPrice = parseFloat(price);
+        return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
+    };
 
     useEffect(() => {
         if (!userInfo) return;
@@ -335,6 +340,7 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
     const [imageUrl, setImageUrl] = useState('');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
+    const [itemCategory, setItemCategory] = useState('');
     const [startingBid, setStartingBid] = useState('');
 
 
@@ -343,6 +349,13 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
         const uid = window.auth.currentUser.uid;
         if (!uid) {
             setError("User not logged in");
+            return;
+        }
+
+        // Validate starting bid
+        const bidAmount = parseFloat(startingBid);
+        if (isNaN(bidAmount) || bidAmount < 0.01) {
+            setError("Starting bid must be at least $0.01");
             return;
         }
 
@@ -359,8 +372,9 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
                     description,
                     imageUrl,
                     createdBy: userInfo.displayName || "Unknown",
-                    startingBid: parseFloat(startingBid),
-                    endAt
+                    startingBid: bidAmount,
+                    endAt,
+                    itemCategory
                 })
             });
 
@@ -381,6 +395,7 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
             setDate('');
             setTime('');
             setStartingBid('');
+            setItemCategory('');
 
             // Refresh user listings
             if (fetchUserListings && user) {
@@ -414,6 +429,24 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
                     required
                 />
                 <br />
+                <label>Item Category: </label>
+                <select
+                    value={itemCategory}
+                    onChange={(e) => setItemCategory(e.target.value)}
+                    required
+                >
+                    <option value="">Select Category</option>
+                    <option value="antiques">Antiques</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="fashion">Fashion</option>
+                    <option value="home">Home</option>
+                    <option value="toys&hobbies">Toys & Hobbies</option>
+                    <option value="books">Books</option>
+                    <option value="sports">Sports</option>
+                    <option value="vehicles">Vehicles</option>
+                    <option value="other">Other</option>
+                </select>
+                <br />
                 <input
                     type="url"
                     placeholder="Image URL"
@@ -440,12 +473,14 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
                 </div>
 
                 <br />
+                <label>Starting Bid: </label>
                 <input
                     type="number"
-                    placeholder="Starting Bid"
+                    placeholder="Starting Bid (e.g., 1.99)"
                     value={startingBid}
                     onChange={(e) => setStartingBid(e.target.value)}
-                    min="1"
+                    min="0.01"
+                    step="0.01"
                     required
                 />
                 <br />
