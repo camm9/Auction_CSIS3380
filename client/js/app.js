@@ -203,6 +203,35 @@ const getNumericValue = (value) => {
     return 0;
 };
 
+const SearchBar = ({ onSearch }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const handleSearch = () => {
+        console.log('handleSearch called with term:', searchTerm); // Debug log
+        onSearch(searchTerm);
+    };
+
+    const handleClear = () => {
+        console.log('handleClear called'); // Debug log
+        setSearchTerm('');
+        onSearch('');
+    };
+
+    return (
+        <div className="search-bar">
+            <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search items..."
+            />
+            <button onClick={handleSearch}>Search</button>
+            <button onClick={handleClear}>Clear</button>
+        </div>
+    );
+};
+
+
 const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     const [bidAmount, setBidAmount] = useState('');
     const [error, setError] = useState('');
@@ -446,6 +475,7 @@ const App = () => {
     const [userItems, setUserItems] = useState([]);
     const [otherItems, setOtherItems] = useState([]);
     const [showUserListings, setShowUserListings] = useState(true);
+    const [searchError, setSearchError] = useState('');
 
     // Get items from mongo
     useEffect(() => {
@@ -515,6 +545,46 @@ const App = () => {
                     </div>
                 </div>)}
             <h2> Browse Items</h2>
+            <SearchBar onSearch={(term) => {
+                console.log('Search triggered with term:', term); // Debug log
+                console.log('Current user:', user); // Debug log
+                console.log('Current items:', items); // Debug log
+
+                if (term.trim() === '') {
+                    // If search is empty
+                    const allOtherItems = items.filter(item => user && item.uid !== user.uid);
+                    setOtherItems(allOtherItems);
+                    setSearchError(''); // Clear any previous search error
+                } else {
+                    // Filter items based on search 
+                    const filteredItems = items.filter(item =>
+                        user && item.uid !== user.uid && (
+                            item.title.toLowerCase().includes(term.toLowerCase()) ||
+                            item.description.toLowerCase().includes(term.toLowerCase()) ||
+                            (item.category && item.category.toLowerCase().includes(term.toLowerCase()))
+                        )
+                    );
+
+                    console.log('Filtered items:', filteredItems); // Debug log
+
+                    if (filteredItems.length === 0) {
+                        setSearchError(`No items found matching "${term}". Try searching with different keywords.`);
+                    } else {
+                        setSearchError(''); // Clear error if results found
+                    }
+
+                    setOtherItems(filteredItems);
+                }
+            }} />
+
+            {searchError && (
+                <div className="warning-message">
+                    <p>
+                        {searchError}
+                    </p>
+                </div>
+            )}
+
             <div className="item-list">
                 {otherItems.map(item => <ItemCard
                     key={item._id}
