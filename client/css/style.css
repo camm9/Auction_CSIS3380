@@ -251,3 +251,79 @@
             font-weight: bold;
             margin-top: 10px;
         }
+
+        /* Bid History Modal Styles */
+        .bid-history-modal {
+            max-width: 600px;
+            width: 95%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .bid-history-content {
+            margin: 20px 0;
+        }
+
+        .bid-history-table {
+            overflow-x: auto;
+        }
+
+        .bid-history-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #504f4f;
+            margin: 0;
+        }
+
+        .bid-history-table th,
+        .bid-history-table td {
+            border: 1px solid #000000;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .bid-history-table th {
+            background-color: #004080;
+            color: rgb(255, 255, 255);
+            font-weight: bold;
+        }
+
+        .bid-history-table tr:hover {
+            background-color: #000000;
+        }
+
+        .highest-bid {
+            background-color: #22975382 !important;
+        }
+
+        .highest-bid:hover {
+            background-color: #227953 !important;
+        }
+
+        .winning-bid {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+
+        .outbid {
+            color: #e74c3c;
+        }
+
+        .modal-actions {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .modal-actions button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .modal-actions button:hover {
+            background-color: #0056b3;
+        }

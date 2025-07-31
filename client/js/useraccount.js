@@ -47,6 +47,7 @@ const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
 
 const UserItems = ({ userInfo, item }) => {
     const [showDisplayModal, setShowDisplayModal] = useState(false);
+    const [showBidHistoryModal, setShowBidHistoryModal] = useState(false);
     const [winnerDisplayName, setWinnerDisplayName] = useState(null);
     const [loadingWinner, setLoadingWinner] = useState(false);
 
@@ -138,7 +139,7 @@ const UserItems = ({ userInfo, item }) => {
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ends At: {new Date(item.endAt).toLocaleString()}</p>
                     <button onClick={() => setShowDisplayModal(true)}>Close Auction</button>
-                    <button>View Bid History</button>
+                    <button onClick={() => setShowBidHistoryModal(true)}>View Bid History</button>
                 </div>)}
             {/* Closed Auction Items */}
             {item.isClosed &&
@@ -150,7 +151,7 @@ const UserItems = ({ userInfo, item }) => {
                     <p>Winner: {item.winnerUid ? winnerDisplayName : "No winner yet"}</p>
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ended At: {new Date(item.endAt).toLocaleString()}</p>
-                    <button>View Bid History</button>
+                    <button onClick={() => setShowBidHistoryModal(true)}>View Bid History</button>
                 </div>)}
             {
                 showDisplayModal && (
@@ -164,9 +165,107 @@ const UserItems = ({ userInfo, item }) => {
                         </div>
                     </div>)
             }
+            {
+                showBidHistoryModal && (
+                    <BidHistoryModal 
+                        itemId={item._id} 
+                        itemTitle={item.title}
+                        onClose={() => setShowBidHistoryModal(false)} 
+                    />
+                )
+            }
         </div >
     )
 }
+
+const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
+    const [bidHistory, setBidHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const fetchBidHistory = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch(`http://localhost:5001/item/bid-history?itemId=${itemId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error fetching bid history: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                setBidHistory(data);
+            } catch (error) {
+                console.error("Error fetching bid history:", error);
+                setError("Failed to load bid history");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (itemId) {
+            fetchBidHistory();
+        }
+    }, [itemId]);
+
+    const formatPrice = (price) => {
+        const numPrice = parseFloat(price);
+        return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
+    };
+
+    return (
+        <div className="item-modal-overlay">
+            <div className="item-modal bid-history-modal">
+                <h3>Bid History for "{itemTitle}"</h3>
+                
+                {loading && <p>Loading bid history...</p>}
+                
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                
+                {!loading && !error && (
+                    <div className="bid-history-content">
+                        {bidHistory.length === 0 ? (
+                            <p>No bids have been placed on this item yet.</p>
+                        ) : (
+                            <div className="bid-history-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Bidder</th>
+                                            <th>Bid Amount</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bidHistory.map((bid, index) => (
+                                            <tr key={bid._id} className={index === 0 ? 'highest-bid' : ''}>
+                                                <td>{bid.bidderDisplayName}</td>
+                                                <td>${formatPrice(bid.bidAmount)}</td>
+                                                <td>{new Date(bid.bidTime).toLocaleString()}</td>
+                                                <td>
+                                                    {index === 0 ? (
+                                                        <span className="winning-bid">Highest Bid</span>
+                                                    ) : (
+                                                        <span className="outbid">Outbid</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+                
+                <div className="modal-actions">
+                    <button onClick={onClose}>Close</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const UserBids = ({ userInfo }) => {
     const [userBids, setUserBids] = useState([]);
