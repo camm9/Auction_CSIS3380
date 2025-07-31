@@ -902,10 +902,10 @@ app.get('/user/bids', async (req, res) => {
     }
 });
 
-app.get('/item/bid-history', async (req, res) => {
+app.get('/api/item/bid-history', async (req, res) => {
     const itemId = req.query.itemId;
     console.log("Received itemId for bid history:", itemId);
-    
+
     if (!itemId) {
         return res.status(400).json({ error: "Item ID is required" });
     }
@@ -919,15 +919,15 @@ app.get('/item/bid-history', async (req, res) => {
         const dbName = "Auction_CSIS3380";
         const bidsCollection = client.db(dbName).collection("Bids");
         const usersCollection = client.db(dbName).collection("Users");
-        
+
         const itemObjectId = new ObjectId(itemId);
-        
+
         // Get all bids for this item, sorted by bid amount (highest first) and then by time
         const bids = await bidsCollection.find({ itemId: itemObjectId })
             .sort({ bidAmount: -1, bidTime: 1 })
             .toArray();
-        
-        // Enrich bids with user display names
+
+        // Get bids with user display names
         const enrichedBids = await Promise.all(bids.map(async (bid) => {
             try {
                 const user = await usersCollection.findOne({ uid: bid.userId });
@@ -943,11 +943,45 @@ app.get('/item/bid-history', async (req, res) => {
                 };
             }
         }));
-        
+
         res.status(200).json(enrichedBids);
     } catch (err) {
         console.error("Error fetching item bid history:", err);
         res.status(500).json({ error: "Server error fetching bid history" });
+    }
+});
+
+app.get('/api/user/item-bids', async (req, res) => {
+    const { itemId, uid } = req.query;
+    console.log("Received itemId and uid for user's item bids:", itemId, uid);
+
+    if (!itemId || !uid) {
+        return res.status(400).json({ error: "Item ID and User ID are required" });
+    }
+
+    if (!ObjectId.isValid(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID format" });
+    }
+
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const bidsCollection = client.db(dbName).collection("Bids");
+
+        const itemObjectId = new ObjectId(itemId);
+
+        // Get all bids by this user for this specific item, sorted by bid time (most recent first)
+        const userBids = await bidsCollection.find({
+            itemId: itemObjectId,
+            userId: uid
+        })
+            .sort({ bidTime: -1 })
+            .toArray();
+
+        res.status(200).json(userBids);
+    } catch (err) {
+        console.error("Error fetching user's bids for item:", err);
+        res.status(500).json({ error: "Server error fetching user's item bids" });
     }
 });
 

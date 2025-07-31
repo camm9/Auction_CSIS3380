@@ -208,6 +208,9 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [activeBidsCount, setActiveBidsCount] = useState(0);
+    const [userBidHistory, setUserBidHistory] = useState([]);
+    const [showBidHistory, setShowBidHistory] = useState(false);
+    const [loadingBidHistory, setLoadingBidHistory] = useState(false);
 
     // Fetch user's active bids count when modal opens
     useEffect(() => {
@@ -228,6 +231,46 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
         }
     }, [user]);
 
+    // Fetch user's bid history for this specific item
+    const fetchUserBidHistory = async () => {
+        try {
+            setLoadingBidHistory(true);
+            const response = await fetch(`http://localhost:5001/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
+
+            if (!response.ok) {
+                throw new Error(`Error fetching bid history: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            setUserBidHistory(data);
+        } catch (error) {
+            console.error("Error fetching user bid history:", error);
+            setError("Failed to load your bid history for this item");
+        } finally {
+            setLoadingBidHistory(false);
+        }
+    };
+
+    // Check if user has bid on this item and fetch history if so
+    useEffect(() => {
+        const checkUserBids = async () => {
+            try {
+                const response = await fetch(`http://localhost:5001/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        setUserBidHistory(data);
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking user bids:", error);
+            }
+        };
+
+        if (user.uid && item._id) {
+            checkUserBids();
+        }
+    }, [user.uid, item._id]);
 
     const currentBid = getNumericValue(item.currentBid);
     const startingBid = getNumericValue(item.startingBid);
@@ -259,6 +302,9 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
                 setBidAmount('');
                 setActiveBidsCount(prev => prev + 1); // Increment active bid count
 
+                // Refresh user's bid history for this item
+                fetchUserBidHistory();
+
                 if (onBidSuccess) {
                     onBidSuccess();
                 }
@@ -268,6 +314,11 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
         } catch (err) {
             setError('Error placing bid: ' + err.message);
         }
+    };
+
+    const formatPrice = (price) => {
+        const numPrice = parseFloat(price);
+        return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
     };
     return (
         <div className="item-modal-overlay">
@@ -279,6 +330,55 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
                         You have reached your limit of 5 active bids
                     </p>
                 )}
+
+                {/* Show user's bid history for this item if they have any */}
+                {userBidHistory.length > 0 && (
+                    <div className="user-bid-history-section">
+                        <button
+                            onClick={() => setShowBidHistory(!showBidHistory)}
+                            className="toggle-history-btn"
+                        >
+                            {showBidHistory ? 'Hide' : 'Show'} Your Bid History ({userBidHistory.length})
+                        </button>
+
+                        {showBidHistory && (
+                            <div className="user-bid-history">
+                                <h4>Your Bids on This Item:</h4>
+                                {loadingBidHistory ? (
+                                    <p>Loading your bid history...</p>
+                                ) : (
+                                    <div className="bid-history-table">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Bid Amount</th>
+                                                    <th>Time</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {userBidHistory.map((bid, index) => (
+                                                    <tr key={bid._id}>
+                                                        <td>${formatPrice(bid.bidAmount)}</td>
+                                                        <td>{new Date(bid.bidTime).toLocaleString()}</td>
+                                                        <td>
+                                                            {bid.bidAmount === currentBid ? (
+                                                                <span className="winning-bid">Current High Bid</span>
+                                                            ) : (
+                                                                <span className="outbid">Outbid</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <label>
                     Your Bid:
                     <input

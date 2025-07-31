@@ -327,3 +327,61 @@
         .modal-actions button:hover {
             background-color: #0056b3;
         }
+
+        /* User Bid History in Item Modal */
+        .user-bid-history-section {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #3a4a5a;
+            border-radius: 5px;
+        }
+
+        .toggle-history-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-history-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .user-bid-history h4 {
+            margin: 10px 0;
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        .user-bid-history .bid-history-table {
+            overflow-x: auto;
+        }
+
+        .user-bid-history .bid-history-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #504f4f;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .user-bid-history .bid-history-table th,
+        .user-bid-history .bid-history-table td {
+            border: 1px solid #000000;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .user-bid-history .bid-history-table th {
+            background-color: #004080;
+            color: rgb(255, 255, 255);
+            font-weight: bold;
+        }
+
+        .user-bid-history .bid-history-table tr:hover {
+            background-color: #000000;
+        }
