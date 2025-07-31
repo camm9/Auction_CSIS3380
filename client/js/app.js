@@ -561,7 +561,7 @@ const App = () => {
                         user && item.uid !== user.uid && (
                             item.title.toLowerCase().includes(term.toLowerCase()) ||
                             item.description.toLowerCase().includes(term.toLowerCase()) ||
-                            (item.category && item.category.toLowerCase().includes(term.toLowerCase()))
+                            (item.itemCategory && item.itemCategory.toLowerCase().includes(term.toLowerCase()))
                         )
                     );
 
