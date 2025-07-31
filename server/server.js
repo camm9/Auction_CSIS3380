@@ -5,6 +5,8 @@ const cors = require("cors");
 const app = express();
 const admin = require("firebase-admin");
 const serviceAccount = require("./auctioncsis3380-firebase-adminsdk.json");
+const { createTransport } = require("nodemailer");
+const { sendMail, sendOutbidEmail } = require("./nodemailer.js");
 
 
 app.use(cors());
@@ -14,6 +16,16 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const uri = process.env.MONGO_URL
 const client = new MongoClient(uri);
+
+// Initialize Nodemailer transporter
+const transporter = createTransport({
+    service: "gmail",
+    auth: {
+        type: "login",
+        user: process.env.Google_user,
+        pass: process.env.Google_App_Password,
+    },
+});
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -36,10 +48,8 @@ async function readItems() {
         return results;
 
     } catch (err) {
-        console.error("Error trying to read db: ", err)
+        console.error("Error trying to read items from db: ", err)
         return [];
-    } finally {
-        await client.close();
     }
 }
 
@@ -61,10 +71,7 @@ async function readUserInfo(uid) {
     } catch (err) {
         console.error("Error trying to read user info from db: ", err)
         return null;
-    } finally {
-        await client.close();
     }
-
 }
 
 app.post('/create-new-listing', async (req, res) => {
@@ -72,6 +79,10 @@ app.post('/create-new-listing', async (req, res) => {
     const createdAt = Date.now();
     const isClosed = false;
     const winningBid = null;
+
+    if (!uid || !title || !description || !imageUrl || !createdBy || !startingBid || !endAt) {
+        return res.status(400).json({ error: "Please provide all required fields: uid, title, description, imageUrl, createdBy, startingBid, endAt" });
+    };
 
     const newItemListing = {
         uid,
@@ -93,16 +104,24 @@ app.post('/create-new-listing', async (req, res) => {
         const database = client.db(dbName);
         const itemsCollection = database.collection(collectionName);
 
-        await itemsCollection.insertOne(newItemListing);
+        const activeListingsCount = await itemsCollection.countDocuments({ uid, isClosed: false });
 
-        console.log("Mongo Record ", newItemListing)
-        res.status(200).send("New Listing Created")
+        if (activeListingsCount >= 30) {
+            return res.status(400).json({ error: "You can only have 30 active listings at a time." });
+        } else {
+            await itemsCollection.insertOne(newItemListing);
+            console.log("Mongo Record ", newItemListing)
+            res.status(200).json({
+                message: "New Listing Created",
+                listing: newItemListing
+            });
+        }
 
     } catch (err) {
         console.error("Error trying to create new listing: ", err)
-        res.status(500).send("Server error during creation of new listing.");
-    } finally {
-        await client.close();
+        res.status(500).json({
+            error: "Server error during creation of new listing."
+        });
     }
 })
 
@@ -129,8 +148,6 @@ app.post("/displayname", async (req, res) => {
     } catch (err) {
         console.error("Error trying to update displayname: ", err)
         res.status(500).send("Server error during displayname update.");
-    } finally {
-        await client.close();
     }
 })
 
@@ -170,102 +187,220 @@ app.post('/sign-in', async (req, res) => {
     } catch (err) {
         console.error("Error trying to sync users in mongo and fb: ", err)
         res.status(500).send("Server error during user sync.");
-    } finally {
-        await client.close();
     }
 })
 
-// app.post('/place-bid', async (req,res) => {
-//     const {itemId, uid, bidAmount} = req.body;
 
-//     //Input validation
-//     if (!itemId || !uid || bidAmount === undefined) {
-//         return res.status(400).send("Please input a bid amount");
+app.post('/end-auction', async (req, res) => {
+    const { itemId, uid, endTime } = req.body;
+    console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
+
+    if (!itemId || !uid || !endTime) {
+        return res.status(400).json({ error: "Please provide itemId, uid, and endTime" });
+    }
+
+    if (!ObjectId.isValid(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID format" });
+    }
+
+    const dbName = "Auction_CSIS3380";
+    const itemObjectId = new ObjectId(itemId);
+    const session = client.startSession();
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const itemsCollection = db.collection("Items");
+        const bidsCollection = db.collection("Bids");
+
+        await session.withTransaction(async () => {
+            // Check if the item exists and belongs to the user
+            const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+            console.log("Item found in db:", item);
+            if (!item || item.uid !== uid) {
+                throw new Error("Item not found or not owned by user");
+            }
+            if (item.isClosed) {
+                console.log("Auction for this item is already closed");
+                throw new Error("Auction for this item is already closed");
+            }
+
+            // Find the highest bid for the item
+            const highestBid = item.currentBid || item.startingBid;
+
+            // Find the winner of the auction
+            let winnerUid = null;
+            const winningBid = await bidsCollection.findOne({
+                itemId: itemObjectId,
+                bidAmount: highestBid
+            }, { session });
+
+            if (winningBid) {
+                winnerUid = winningBid.userId;
+            }
+
+            // Mark all bids for this item as inactive
+            await bidsCollection.updateMany(
+                { itemId: itemObjectId },
+                { $set: { isActive: false } },
+                { session }
+            );
+
+            // Update the item to mark it as closed
+            await itemsCollection.updateOne(
+                { _id: itemObjectId },
+                {
+                    $set: {
+                        isClosed: true,
+                        endAt: new Date(endTime),
+                        winningBid: highestBid,
+                        winnerUid: winnerUid
+                    }
+                },
+                { session }
+            );
+
+            // Notify the winner if there is one
+            if (winnerUid && highestBid) {
+                const winnerEmail = await readUserInfo(winnerUid).then(user => user.email);
+                const winnerUsername = await readUserInfo(winnerUid).then(user => user.displayName || user.email);
+                console.log("Winner Email: ", winnerEmail, "Winner Username: ", winnerUsername);
+                try {
+                    await sendWinnerEmail(winnerEmail, item.title, highestBid, winnerUsername);
+                    console.log("Winner email sent to: ", winnerEmail);
+                } catch (error) {
+                    console.error("Error sending winner email:", error);
+                }
+            }
+
+            res.status(200).json({
+                message: "Auction ended successfully",
+                winnerUid,
+                highestBid
+            });
+        });
+
+    } catch (err) {
+        console.error("Error ending auction:", err);
+        return res.status(500).json({ error: err.message || "Internal Server Error while trying to end auction" });
+    } finally {
+        await session.endSession();
+    }
+});
+
+// app.post('/end-auction', async (req, res) => {
+//     const { itemId, uid, endTime } = req.body;
+//     console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
+//     // Validate input
+//     if (!itemId || !uid || !endTime) {
+//         return res.status(400).json({ error: "Please provide itemId, uid, and endTime" });
 //     }
 
+//     if (!ObjectId.isValid(itemId)) {
+//         return res.status(400).json({ error: "Invalid item ID format" });
+//     }
+
+//     const dbName = "Auction_CSIS3380";
+//     const itemObjectId = new ObjectId(itemId);
+//     const session = client.startSession();
+
 //     try {
+//         await client.connect();
+//         const db = client.db(dbName);
+//         const itemsCollection = db.collection("Items");
+//         const bidsCollection = db.collection("Bids")
+//         // Check if the item exists and belongs to the user
+//         const item = await itemsCollection.findOne({ _id: itemObjectId });
+//         console.log("Item found in db:", item);
+//         if (!item || item.uid !== uid) {
+//             return res.status(404).json({ error: "Item not found" });
+//         }
+//         if (item.isClosed) {
+//             console.log("Auction for this item is already closed");
+//             return res.status(400).json({ error: "Auction for this item is already closed" });
+//         }
+//         // Find the highest bid for the item, if no bids exist, use the starting bid
+//         const highestBid = item.currentBid || item.startingBid;
 
-//         //Make sure bid isn't a negative number
-//         const numericBidAmount = Number(bidAmount);
-//         if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
-//             return res.status(400).send("Invalid bid amount");
+//         // Find the winner of the auction
+//         let winnerUid = null;
+//         const winningBid = await bidsCollection.findOne({ itemId: itemObjectId, bidAmount: highestBid });
+//         if (!winningBid) {
+//             console.log("No winning bid found for item:", itemId);
+//         } else {
+//             winnerUid = winningBid.userId;
 //         }
 
-//         if (!ObjectId.isValid(itemId)) {
-//             return res.status(400).send("Invalid item ID format");
+//         // console.log("Winner UID: ", winnerUid, "Highest Bid: ", highestBid);
+
+//         // Notify the winner via Nodemailer
+//         if (winnerUid && highestBid) {
+//             const winnerEmail = await readUserInfo(winnerUid).then(user => user.email);
+//             const winnerUsername = await readUserInfo(winnerUid).then(user => user.displayName || user.email);
+//             console.log("Winner Email: ", winnerEmail, "Winner Username: ", winnerUsername);
+//             try {
+//                 await sendWinnerEmail(winnerEmail, item.title, highestBid, winnerUsername);
+//                 console.log("Winner email sent to: ", winnerEmail);
+
+//             } catch (error) {
+//                 console.error("Error sending winner email:", error);
+//             }
 //         }
 
-//          const session = client.startSession();
-//         try {
-//             let result;
-//             await session.withTransaction(async () => {
-//                 // Get the current item with proper locking
-//                 const item = await itemsCollection.findOne(
-//                     { _id: itemObjectId },
-//                     { session }
-//                 );
+//         res.status(200).json({
+//             message: "Auction ended successfully",
+//             winnerUid,
+//             highestBid
+//         });
 
-//                 if (!item) {
-//                     throw new Error("Item not found");
-//                 }
+//         // Update the item to mark it as closed
+//         await itemsCollection.updateOne(
+//             { _id: itemObjectId },
+//             {
+//                 $set: { isClosed: true, endAt: new Date(endTime), winningBid: highestBid, winnerUid: winnerUid }
+//             }
+//         )
 
-//                 // Check auction status
-//                 if (item.isClosed) {
-//                     throw new Error("Auction for this item is closed");
-//                 }
-
-//                 // Check if bid is higher than current bid
-//                 const currentBid = item.currentBid || item.startingBid;
-//                 if (numericBidAmount <= currentBid) {
-//                     throw new Error(`Bid must be higher than $${currentBid}`);
-//                 }
-
-//                 // Create the new bid document
-//                 const newBid = {
-//                     itemId: itemObjectId,
-//                     userId: uid,
-//                     bidAmount: numericBidAmount,
-//                     bidTime: new Date(),
-//                     itemTitle: item.title
-//                 };
-
-//                 // Insert the bid
-//                 const bidResult = await bidsCollection.insertOne(newBid, { session });
-
-//                 // Update the item
-//                 const updateResult = await itemsCollection.updateOne(
-//                     { _id: itemObjectId },
-//                     { 
-//                         $set: { 
-//                             currentBid: numericBidAmount,
-//                             winningBid: bidResult.insertedId 
-//                         } 
-//                     },
-//                     { session }
-//                 );
-
-//                 result = {
-//                     bidId: bidResult.insertedId,
-//                     updated: updateResult.modifiedCount
-//                 };
-//             });
-
-//             res.status(200).json({
-//                 message: "Bid placed successfully",
-//                 ...result
-//             });
-//         } finally {
-//             await session.endSession();
-//         }
 //     } catch (err) {
-//         console.error("Error placing bid:", err);
-//         const status = err.message.includes("not found") ? 404 : 500;
-//         res.status(status).send(err.message);
-//     } finally {
-//         await client.close();
+//         console.error("Error ending auction:", err);
+//         return res.status(500).json({ error: "Internal Server Error while trying to end auction" });
 //     }
 // });
 
+sendWinnerEmail = async (winnerEmail, itemTitle, winningBid, winnerUsername) => {
+    const to = winnerEmail
+    const subject = `Congratulations! You won the auction for ${itemTitle}`;
+    const text = ` Dear ${winnerUsername},\n\nCongratulations! You have won the auction for the ${itemTitle}
+    with a bid of $${winningBid}. Please visit the auction and confirm payment.\n\n`
+
+    try {
+        const info = await sendMail(to, subject, text);
+        console.log("Email sent successfully:", info);
+        return { success: true, info };
+
+    } catch (error) {
+        console.error("Error sending email:", error);
+        throw new Error("Failed to send email");
+    }
+}
+
+app.post('/api/send-winner-email', async (req, res) => {
+    console.log("Received request to send winner email");
+    const { winnerEmail, itemTitle, winningBid } = req.body;
+
+    if (!winnerEmail || !itemTitle || winningBid === undefined) {
+        return res.status(400).json({ error: "Please provide winnerEmail, itemTitle, and winningBid" });
+    }
+
+    try {
+        await sendWinnerEmail(winnerEmail, itemTitle, winningBid);
+        res.status(200).json({ message: "Email sent successfully" });
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to send email" });
+    }
+
+})
 app.post('/place-bid', async (req, res) => {
     const { itemId, uid, bidAmount } = req.body;
 
@@ -286,6 +421,8 @@ app.post('/place-bid', async (req, res) => {
     const itemObjectId = new ObjectId(itemId);
     const session = client.startSession();
 
+    let emailInfo = null; // Store email info for sending after transaction
+
     try {
         await client.connect();
         const db = client.db(dbName);
@@ -294,31 +431,57 @@ app.post('/place-bid', async (req, res) => {
 
         let result;
         await session.withTransaction(async () => {
+            // 1. Check if user has reached the active bid limit (5)
+            const activeBidsCount = await bidsCollection.countDocuments({
+                userId: uid,
+                isActive: true
+            }, { session });
+
+            if (activeBidsCount >= 5) {
+                throw new Error("You can't have more than 5 active bids at once");
+            }
+
+            // 2. Verify item exists and is open for bidding
             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+            if (!item) throw new Error("Item not found");
+            if (item.isClosed) throw new Error("Auction for this item is closed");
 
-            if (!item) {
-                throw new Error("Item not found");
-            }
-            if (item.isClosed) {
-                throw new Error("Auction for this item is closed");
-            }
-
+            // 3. Verify bid is higher than current bid
             const currentBid = item.currentBid || item.startingBid;
             if (numericBidAmount <= currentBid) {
                 throw new Error(`Bid must be higher than $${currentBid}`);
             }
 
+            // 4. Create new bid record
             const newBid = {
                 itemId: itemObjectId,
                 userId: uid,
                 bidAmount: numericBidAmount,
                 bidTime: new Date(),
+                isActive: true,
                 itemTitle: item.title
             };
-
             const bidResult = await bidsCollection.insertOne(newBid, { session });
 
-            const updateResult = await itemsCollection.updateOne(
+            // Find previous highest active bid (excluding current user)
+            const previousHighestBid = await bidsCollection.findOne(
+                { itemId: itemObjectId, isActive: true, userId: { $ne: uid } },
+                { sort: { bidAmount: -1 }, session }
+            );
+
+            if (previousHighestBid) {
+                const previousUser = await readUserInfo(previousHighestBid.userId);
+                if (previousUser?.email) {
+                    emailInfo = {
+                        to: previousUser.email,
+                        title: item.title,
+                        newBid: numericBidAmount,
+                    };
+                }
+            }
+
+            // 5. Update item with new current bid and winning bid
+            await itemsCollection.updateOne(
                 { _id: itemObjectId },
                 {
                     $set: {
@@ -329,11 +492,34 @@ app.post('/place-bid', async (req, res) => {
                 { session }
             );
 
+            // 6. Mark older active bids on this item (from other users) as inactive
+            await bidsCollection.updateMany(
+                {
+                    itemId: itemObjectId,
+                    isActive: true,
+                    userId: { $ne: uid }
+                },
+                {
+                    $set: { isActive: false }
+                },
+                { session }
+            );
+
             result = {
                 bidId: bidResult.insertedId,
-                updated: updateResult.modifiedCount
+                updated: 1
             };
         });
+
+        // Send outbid notification email after transaction commits
+        if (emailInfo) {
+            try {
+                await sendOutbidEmail(emailInfo.to, emailInfo.title, emailInfo.newBid);
+            } catch (emailError) {
+                console.error("Failed to send outbid email:", emailError);
+                // You can choose to continue without failing the request here
+            }
+        }
 
         res.status(200).json({
             message: "Bid placed successfully",
@@ -342,12 +528,363 @@ app.post('/place-bid', async (req, res) => {
 
     } catch (err) {
         console.error("Error placing bid:", err);
-        res.status(500).json({ error: err.message || "Internal Server Error" });
+        res.status(400).json({ error: err.message || "Internal Server Error" });
     } finally {
         await session.endSession();
-        await client.close();
     }
 });
+
+// app.post('/place-bid', async (req, res) => {
+//     const { itemId, uid, bidAmount } = req.body;
+//     const { sendOutbidEmail } = require('./sendOutbidEmail');
+
+//     if (!itemId || !uid || bidAmount === undefined) {
+//         return res.status(400).json({ error: "Please input a bid amount" });
+//     }
+
+//     const numericBidAmount = Number(bidAmount);
+//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
+//         return res.status(400).json({ error: "Invalid bid amount" });
+//     }
+
+//     if (!ObjectId.isValid(itemId)) {
+//         return res.status(400).json({ error: "Invalid item ID format" });
+//     }
+
+//     const dbName = "Auction_CSIS3380";
+//     const itemObjectId = new ObjectId(itemId);
+//     const session = client.startSession();
+
+//     try {
+//         await client.connect();
+//         const db = client.db(dbName);
+//         const itemsCollection = db.collection("Items");
+//         const bidsCollection = db.collection("Bids");
+
+//         let result;
+//         await session.withTransaction(async () => {
+//             // 1. Check if user has reached the active bid limit (5)
+//             const activeBidsCount = await bidsCollection.countDocuments({
+//                 userId: uid,
+//                 isActive: true
+//             }, { session });
+
+//             if (activeBidsCount >= 5) {
+//                 throw new Error("You can't have more than 5 active bids at once");
+//             }
+
+//             // 2. Verify item exists and is open for bidding
+//             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+//             if (!item) throw new Error("Item not found");
+//             if (item.isClosed) throw new Error("Auction for this item is closed");
+
+//             // 3. Verify bid is higher than current bid
+//             const currentBid = item.currentBid || item.startingBid;
+//             if (numericBidAmount <= currentBid) {
+//                 throw new Error(`Bid must be higher than $${currentBid}`);
+//             }
+
+//             // 4. Create new bid record
+//             const newBid = {
+//                 itemId: itemObjectId,
+//                 userId: uid,
+//                 bidAmount: numericBidAmount,
+//                 bidTime: new Date(),
+//                 isActive: true,
+//                 itemTitle: item.title
+//             };
+//             const bidResult = await bidsCollection.insertOne(newBid, { session });
+
+
+//             const previousHighestBid = await bidsCollection.findOne(
+//                 { itemId: itemObjectId, isActive: true, userId: { $ne: uid } },
+//                 { sort: { bidAmount: -1 }, session }
+//             );
+
+//             if (previousHighestBid) {
+//                 const previousUser = await readUserInfo(previousHighestBid.userId);
+//                 if (previousUser?.email) {
+//                 emailInfo = {
+//                     to: previousUser.email,
+//                     title: item.title,
+//                     newBid: numericBidAmount,
+//                 };
+//             }
+
+//             // 5. Update item with new current bid and winning bid
+//             await itemsCollection.updateOne(
+//                 { _id: itemObjectId },
+//                 {
+//                     $set: {
+//                         currentBid: numericBidAmount,
+//                         winningBid: bidResult.insertedId
+//                     }
+//                 },
+//                 { session }
+//             );
+
+//             // 6. Mark older active bids on this item (from other users) as inactive
+//             await bidsCollection.updateMany(
+//                 {
+//                     itemId: itemObjectId,
+//                     isActive: true,
+//                     userId: { $ne: uid }
+//                 },
+//                 {
+//                     $set: { isActive: false }
+//                 },
+//                 { session }
+//             );
+
+//             result = {
+//                 bidId: bidResult.insertedId,
+//                 updated: 1
+//             };
+//         }
+//     }
+// );
+
+//         res.status(200).json({
+//             message: "Bid placed successfully",
+//             ...result
+//         });
+
+//     } catch (err) {
+//         console.error("Error placing bid:", err);
+//         res.status(400).json({ error: err.message || "Internal Server Error" });
+//     } finally {
+//         await session.endSession();
+//     }
+// });
+
+// app.post('/place-bid', async (req, res) => {
+//     const { itemId, uid, bidAmount } = req.body;
+
+//     if (!itemId || !uid || bidAmount === undefined) {
+//         return res.status(400).json({ error: "Please input a bid amount" });
+//     }
+
+//     const numericBidAmount = Number(bidAmount);
+//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
+//         return res.status(400).json({ error: "Invalid bid amount" });
+//     }
+
+//     if (!ObjectId.isValid(itemId)) {
+//         return res.status(400).json({ error: "Invalid item ID format" });
+//     }
+
+//     const dbName = "Auction_CSIS3380";
+//     const itemObjectId = new ObjectId(itemId);
+//     const session = client.startSession();
+
+//     try {
+//         await client.connect();
+//         const db = client.db(dbName);
+//         const itemsCollection = db.collection("Items");
+//         const bidsCollection = db.collection("Bids");
+
+//         let result;
+//         await session.withTransaction(async () => {
+
+//         // 1. Check if user has reached the active bid limit (5)
+//         const activeBidsCount = await bidsCollection.countDocuments({
+//             userId: uid,
+//             status: "active"
+//         }, { session });
+
+//         if (activeBidsCount >= 5) {
+//             throw new Error("You can't have more than 5 active bids at once");
+//         }
+
+//         // 2. Verify item exists and is open for bidding
+//         const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+//         if (!item) throw new Error("Item not found");
+//         if (item.isClosed) throw new Error("Auction for this item is closed");
+
+//         // 3. Verify bid is higher than current bid
+//         const currentBid = item.currentBid || item.startingBid;
+//         if (numericBidAmount <= currentBid) {
+//             throw new Error(`Bid must be higher than $${currentBid}`);
+//         }
+
+//         // 4. Create new bid record
+//         const newBid = {
+//             itemId: itemObjectId,
+//             userId: uid,
+//             bidAmount: numericBidAmount,
+//             bidTime: new Date(),
+//             status: "active",
+//             itemTitle: item.title
+//         };
+//         const bidResult = await bidsCollection.insertOne(newBid, { session });
+
+//         // 5. Update item with new current bid and winning bid
+//         await itemsCollection.updateOne(
+//             { _id: itemObjectId },
+//             {
+//                 $set: {
+//                     currentBid: numericBidAmount,
+//                     winningBid: bidResult.insertedId
+//                 }
+//             },
+//             { session }
+//         );
+
+//         // 6. Mark older active bids on this item (from other users) as inactive
+//         await bidsCollection.updateMany(
+//             {
+//                 itemId: itemObjectId,
+//                 status: "active",
+//                 userId: uid,
+//                     _id: { $ne: bidResult.insertedId }
+//             },
+//             {
+//                 $set: { status: "inactive" }
+//             },
+//             { session }
+//         );
+
+//         result = {
+//             bidId: bidResult.insertedId,
+//             updated: 1
+//         };
+//     });
+
+//         res.status(200).json({
+//             message: "Bid placed successfully",
+//             ...result
+//         });
+
+//     } catch (err) {
+//         console.error("Error placing bid:", err);
+//         res.status(400).json({ error: err.message || "Internal Server Error" });
+//     } finally {
+//         await session.endSession();
+//     }
+// });
+
+// app.post('/place-bid', async (req, res) => {
+//     const { itemId, uid, bidAmount } = req.body;
+
+//     if (!itemId || !uid || bidAmount === undefined) {
+//         return res.status(400).json({ error: "Please input a bid amount" });
+//     }
+
+//     const numericBidAmount = Number(bidAmount);
+//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
+//         return res.status(400).json({ error: "Invalid bid amount" });
+//     }
+
+//     if (!ObjectId.isValid(itemId)) {
+//         return res.status(400).json({ error: "Invalid item ID format" });
+//     }
+
+//     const dbName = "Auction_CSIS3380";
+//     const itemObjectId = new ObjectId(itemId);
+//     const session = client.startSession();
+
+//     try {
+//         await client.connect();
+//         const db = client.db(dbName);
+//         const itemsCollection = db.collection("Items");
+//         const bidsCollection = db.collection("Bids");
+
+//         let result;
+//         await session.withTransaction(async () => {
+//             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+
+//             if (!item) {
+//                 throw new Error("Item not found");
+//             }
+//             if (item.isClosed) {
+//                 throw new Error("Auction for this item is closed");
+//             }
+
+//             const currentBid = item.currentBid || item.startingBid;
+//             if (numericBidAmount <= currentBid) {
+//                 throw new Error(`Bid must be higher than $${currentBid}`);
+//             }
+
+//             const newBid = {
+//                 itemId: itemObjectId,
+//                 userId: uid,
+//                 bidAmount: numericBidAmount,
+//                 bidTime: new Date(),
+//                 itemTitle: item.title
+//             };
+
+//             const bidResult = await bidsCollection.insertOne(newBid, { session });
+
+//             const updateResult = await itemsCollection.updateOne(
+//                 { _id: itemObjectId },
+//                 {
+//                     $set: {
+//                         currentBid: numericBidAmount,
+//                         winningBid: bidResult.insertedId
+//                     }
+//                 },
+//                 { session }
+//             );
+
+//             result = {
+//                 bidId: bidResult.insertedId,
+//                 updated: updateResult.modifiedCount
+//             };
+//         });
+
+//         res.status(200).json({
+//             message: "Bid placed successfully",
+//             ...result
+//         });
+
+//     } catch (err) {
+//         console.error("Error placing bid:", err);
+//         res.status(500).json({ error: err.message || "Internal Server Error" });
+//     }
+//     //  finally {
+//     //     await session.endSession();
+//     //     await client.close();
+//     // }
+// });
+
+app.get('/user/active-bids', async (req, res) => {
+    const uid = req.query.uid;
+    console.log("Received UID for active bids count:", uid);
+    try {
+        await client.connect();
+        const dbName = "Auction_CSIS3380";
+        const bidsCollection = client.db(dbName).collection("Bids");
+
+        const count = await bidsCollection.countDocuments({
+            userId: uid,
+            isActive: true
+        });
+
+        res.status(200).json({ count });
+    } catch (err) {
+        console.error("Error fetching active bids count:", err);
+        res.status(500).send("Server error fetching active bids count");
+    }
+});
+
+// app.get('/user/bids', async (req, res) => {
+//     const uid = req.query.uid;
+//     console.log("Received UID:", uid);
+//     try {
+//         await client.connect();
+//         const dbName = "Auction_CSIS3380";
+//         const bidsCollection = client.db(dbName).collection("Bids");
+
+//         const bids = await bidsCollection.find({ userId: uid }).toArray();
+//         res.status(200).json(bids);
+//     } catch (err) {
+//         console.error("Error fetching user bids:", err);
+//         res.status(500).send("Server error fetching bids");
+//     }
+//     // finally {
+//     //     await client.close();
+//     // }
+// })
 
 app.get('/user/bids', async (req, res) => {
     const uid = req.query.uid;
@@ -362,10 +899,8 @@ app.get('/user/bids', async (req, res) => {
     } catch (err) {
         console.error("Error fetching user bids:", err);
         res.status(500).send("Server error fetching bids");
-    } finally {
-        await client.close();
     }
-})
+});
 
 
 app.get('/user/info/', async (req, res) => {
@@ -377,6 +912,59 @@ app.get("/api/items", async (req, res) => {
     const items = await readItems();
     res.json(items);
 });
+
+app.get("/api/user_items", async (req, res) => {
+    const userId = req.query.uid;
+    const items = await readItems();
+    const userItems = items.filter(item => item.uid === userId);
+    console.log("User's items:", userItems);
+    res.status(200).json(userItems);
+});
+
+
+//Insert many items into the database
+// async function insertDocuments() {
+
+//     try {
+//         await client.connect();
+//         const dbName = "Auction_CSIS3380";
+//         const collectionName = "Items";
+//         const database = client.db(dbName);
+//         const itemsCollection = database.collection(collectionName);
+
+//         const documents = [
+//             { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur28", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur29", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur8", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur9", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur10", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur11", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur12", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur13", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur14", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur15", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur16", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur17", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur18", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur19", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur20", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur21", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur22", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur23", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur24", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur25", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+//             // { "uid": "tKYngHOWs4SQQzqrP2lQAXkRCUi1", "title": "Dinosaur26", "description": "T-Rex Skeleton", "imageUrl": "https://s.wsj.net/public/resources/images/B3-BQ117_dino_M_20180906144443.jpg", "sellerDisplayName": "test1", "startingBid": { "$numberInt": "20000" }, "endAt": "2025-07-16T19:20:00.000Z", "createdAt": { "$numberDouble": "1752603612988.0" }, "isClosed": false, "winningBid": null },
+
+//         ];
+
+//         const result = await itemsCollection.insertMany(documents);
+//         console.log(`${result.insertedCount} documents inserted`);
+//     } finally {
+//         await client.close();
+//     }
+// }
+
+// insertDocuments().catch(console.error);
 
 app.listen(PORT, () => {
     console.log(`Server listening on localhost:${PORT}`);

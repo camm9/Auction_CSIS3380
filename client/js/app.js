@@ -108,12 +108,132 @@ const SignIn = ({ onSuccess, onRegister }) => {
     );
 };
 
+// const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
+//     const [bidAmount, setBidAmount] = useState('');
+//     const [error, setError] = useState('');
+//     const [success, setSuccess] = useState('');
+
+//     // Helper function to extract numeric values from MongoDB objects
+//     const getNumericValue = (value) => {
+//         if (typeof value === 'number') {
+//             return value;
+//         }
+//         if (typeof value === 'object' && value !== null) {
+//             if (value.$numberInt) return parseInt(value.$numberInt);
+//             if (value.$numberDouble) return parseFloat(value.$numberDouble);
+//             if (value.$numberDecimal) return parseFloat(value.$numberDecimal);
+//         }
+//         return 0;
+//     };
+
+//     const currentBid = getNumericValue(item.currentBid);
+//     const startingBid = getNumericValue(item.startingBid);
+//     const displayBid = currentBid || startingBid;
+//     const minBidAmount = (currentBid || startingBid) + 1;
+
+//     //Ensure there is input
+//     const handlePlaceBid = async () => {
+//         if (!bidAmount || isNaN(bidAmount)) {
+//             setError('Please enter a valid bid amount');
+//             return;
+//         }
+
+//         try {
+//             const response = await fetch('http://localhost:5001/place-bid', {
+//                 method: 'POST',
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({
+//                     itemId: item._id,
+//                     uid: user.uid,
+//                     bidAmount: parseFloat(bidAmount)
+//                 })
+//             });
+
+//             const data = await response.json();
+
+//             if (response.ok) {
+//                 setSuccess('Bid placed successfully!');
+//                 setError('');
+//                 setBidAmount('');
+
+//                 if (onBidSuccess) {
+//                     onBidSuccess();
+//                 }
+
+//             } else {
+//                 setError(data.message || 'Failed to place bid');
+//             }
+//         } catch (err) {
+//             setError('Error placing bid: ' + err.message);
+//         }
+//     };
+
+//     return (
+//         <div className="item-modal-overlay">
+//             <div className="item-modal">
+//                 <h2>{item.title}</h2>
+//                 <p>Current Bid: ${displayBid}</p>
+//                 <label>
+//                     Your Bid:
+//                     <input
+//                         type="number"
+//                         value={bidAmount}
+//                         onChange={(e) => setBidAmount(e.target.value)}
+//                         min={minBidAmount}
+//                     />
+//                 </label>
+//                 <div>
+//                     <button onClick={handlePlaceBid}>Place Bid</button>
+//                     <button onClick={onClose}>Close</button>
+//                 </div>
+//                 {error && <p style={{ color: 'red' }}>{error}</p>}
+//                 {success && <p style={{ color: 'green' }}>{success}</p>}
+//             </div>
+//         </div>
+//     );
+// };
+
+const getNumericValue = (value) => {
+    if (typeof value === 'number') return value;
+    if (value && typeof value === 'object') {
+        if ('$numberInt' in value) return parseInt(value.$numberInt);
+        if ('$numberDouble' in value) return parseFloat(value.$numberDouble);
+        if ('$numberDecimal' in value) return parseFloat(value.$numberDecimal);
+    }
+    return 0;
+};
+
 const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     const [bidAmount, setBidAmount] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [activeBidsCount, setActiveBidsCount] = useState(0);
 
-    //Ensure there is input
+    // Fetch user's active bids count when modal opens
+    useEffect(() => {
+        const fetchActiveBids = async () => {
+            try {
+                const response = await fetch(`http://localhost:5001/user/active-bids?uid=${user.uid}`);
+                const data = await response.json();
+                if (response.ok) {
+                    setActiveBidsCount(data.count);
+                }
+            } catch (err) {
+                console.error("Error fetching active bids:", err);
+            }
+        };
+
+        if (user.uid) {
+            fetchActiveBids();
+        }
+    }, [user]);
+
+
+    const currentBid = getNumericValue(item.currentBid);
+    const startingBid = getNumericValue(item.startingBid);
+    const displayBid = currentBid || startingBid;
+    const minBidAmount = (currentBid || startingBid) + 1;
+
     const handlePlaceBid = async () => {
         if (!bidAmount || isNaN(bidAmount)) {
             setError('Please enter a valid bid amount');
@@ -137,11 +257,11 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
                 setSuccess('Bid placed successfully!');
                 setError('');
                 setBidAmount('');
+                setActiveBidsCount(prev => prev + 1); // Increment active bid count
 
                 if (onBidSuccess) {
                     onBidSuccess();
                 }
-
             } else {
                 setError(data.message || 'Failed to place bid');
             }
@@ -149,28 +269,33 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
             setError('Error placing bid: ' + err.message);
         }
     };
-
     return (
         <div className="item-modal-overlay">
             <div className="item-modal">
                 <h2>{item.title}</h2>
-                <p>Current Bid: ${item.currentBid || item.startingBid}</p>
+                <p>Current Bid: ${displayBid}</p>
+                {activeBidsCount >= 5 && (
+                    <p style={{ color: 'red' }}>
+                        You have reached your limit of 5 active bids
+                    </p>
+                )}
                 <label>
                     Your Bid:
                     <input
                         type="number"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        // min={item.currentBid ? item.currentBid + 1 : item.startingBid + 1}
-                        min={(typeof item.currentBid === 'number'
-                            ? item.currentBid
-                            : typeof item.startingBid === 'number'
-                                ? item.startingBid
-                                : 0) + 1}
+                        min={minBidAmount}
+                        disabled={activeBidsCount >= 5} // Disable input if limit reached
                     />
                 </label>
                 <div>
-                    <button onClick={handlePlaceBid}>Place Bid</button>
+                    <button
+                        onClick={handlePlaceBid}
+                        disabled={activeBidsCount >= 5} // Disable button if limit reached
+                    >
+                        Place Bid
+                    </button>
                     <button onClick={onClose}>Close</button>
                 </div>
                 {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -180,23 +305,37 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     );
 };
 
-
-
-
 const ItemCard = ({ item, onPlaceBid, user }) => {
-    const isUsersItem = user && item.uid === user.uid; //create a boolean for whether user owns item or not
+    const isUsersItem = user && item.uid === user.uid;
+
+    // Helper function to extract numeric values from MongoDB objects
+    const getNumericValue = (value) => {
+        if (typeof value === 'number') {
+            return value;
+        }
+        if (typeof value === 'object' && value !== null) {
+            if (value.$numberInt) return parseInt(value.$numberInt);
+            if (value.$numberDouble) return parseFloat(value.$numberDouble);
+            if (value.$numberDecimal) return parseFloat(value.$numberDecimal);
+        }
+        return 0;
+    };
+
+    const currentBid = getNumericValue(item.currentBid);
+    const startingBid = getNumericValue(item.startingBid);
+    const displayBid = currentBid || startingBid;
 
     return (
-        <div className="item-card">
-            <div key={item._id}>
-                <h4>{item.title}</h4>
-                <p>{item.description}</p>
-                <p>Seller: {item.createdBy}</p>
-                <img src={item.imageUrl} alt={item.title} width="150" />
-                <p>Current Bid: ${item.currentBid || item.startingBid}</p>
-                {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
-                {isUsersItem && <p>View your listing's details</p>}
-            </div>
+        <div>{!item.isClosed && (
+            <div className="item-card">
+                <div key={item._id}>
+                    <h4>{item.title}</h4>
+                    <p>{item.description}</p>
+                    <img src={item.imageUrl} alt={item.title} width="150" />
+                    <p>Current Bid: ${displayBid}</p>
+                    {!isUsersItem && (<button onClick={() => onPlaceBid(item)}>Place Bid</button>)}
+                </div>
+            </div>)}
         </div>
     );
 };
@@ -209,6 +348,7 @@ const App = () => {
     const [showDisplayNameModal, setShowDisplayNameModal] = useState(false)
     const [userItems, setUserItems] = useState([]);
     const [otherItems, setOtherItems] = useState([]);
+    const [showUserListings, setShowUserListings] = useState(true);
 
     // Get items from mongo
     useEffect(() => {
@@ -251,7 +391,7 @@ const App = () => {
     return (
         <div>
             <h1>Auction</h1>
-            <a href="useraccount.html">Go to User Account</a>
+            <a href="useraccount.html"><button> Go to User Account</button></a>
             <button onClick={() => window.signOutUser()}>Sign Out</button>
             {!isSignedIn && <SignIn onSuccess={() => setIsSignedIn(true)} onRegister={() => setShowDisplayNameModal(true)} />}
             {showDisplayNameModal && (
@@ -262,15 +402,21 @@ const App = () => {
                     }}
                 />
             )}
-            <h2> Your Listed Items</h2>
-            <div className="item-list">
-                {userItems.map(item => <ItemCard
-                    key={item._id}
-                    item={item}
-                    onPlaceBid={setSelectedItems}
-                    user={user} />
-                )}
-            </div>
+            <button onClick={() => setShowUserListings(!showUserListings)}>
+                {showUserListings ? "Hide Your Listings" : "Show Your Listings"}
+            </button>
+            {showUserListings && (
+                <div>
+                    <h2> Your Active Listed Items</h2>
+                    <div className="item-list">
+                        {userItems.map(item => <ItemCard
+                            key={item._id}
+                            item={item}
+                            onPlaceBid={setSelectedItems}
+                            user={user} />
+                        )}
+                    </div>
+                </div>)}
             <h2> Browse Items</h2>
             <div className="item-list">
                 {otherItems.map(item => <ItemCard
