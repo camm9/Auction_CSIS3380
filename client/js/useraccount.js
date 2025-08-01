@@ -32,6 +32,7 @@ const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
                         key={item._id}
                         item={item}
                         userInfo={userInfo}
+                        fetchUserListings={fetchUserListings}
                     />
                 ))}
             </div>
@@ -45,7 +46,7 @@ const UserListings = ({ userInfo, userListings, fetchUserListings, user }) => {
 }
 
 
-const UserItems = ({ userInfo, item }) => {
+const UserItems = ({ userInfo, item, fetchUserListings }) => {
     const [showDisplayModal, setShowDisplayModal] = useState(false);
     const [showBidHistoryModal, setShowBidHistoryModal] = useState(false);
     const [winnerDisplayName, setWinnerDisplayName] = useState(null);
@@ -63,16 +64,27 @@ const UserItems = ({ userInfo, item }) => {
     // Fetch winner display name when item is closed and has a winner
     useEffect(() => {
         const fetchWinnerName = async () => {
-            if (item.isClosed && item.winnerUid && !winnerDisplayName) {
+            if (item.isClosed && !winnerDisplayName) {
                 setLoadingWinner(true);
                 try {
+                    // Check if there's no winner first
+                    if (item.winnerUid === null || item.winnerUid === undefined) {
+                        setWinnerDisplayName("No Winner");
+                        return;
+                    }
+
+                    // Only make API call if there's actually a winnerUid
                     const response = await fetch(`http://localhost:5001/user/info?uid=${item.winnerUid}`);
                     if (!response.ok) {
                         throw new Error(`Error fetching user info: ${response.statusText}`);
                     }
                     const data = await response.json();
-                    console.log("Winner display name data:", data.displayName);
-                    setWinnerDisplayName(data.displayName || "Unknown User");
+
+                    if (data.displayName === null || data.displayName === undefined) {
+                        setWinnerDisplayName("Unknown User");
+                    } else {
+                        setWinnerDisplayName(data.displayName);
+                    }
                 } catch (error) {
                     console.error("Error fetching winner display name:", error);
                     setWinnerDisplayName("Error loading name");
@@ -85,15 +97,53 @@ const UserItems = ({ userInfo, item }) => {
         fetchWinnerName();
     }, [item.isClosed, item.winnerUid, winnerDisplayName]);
 
-    const endAuction = () => {
-        // Function to end the auction and notify the winner
+    const cancelAuction = () => {
+        // Function to cancel the auction and declare no winner
 
-        let endTime = new Date(item.endAt);
+        let actualEndTime = new Date(); // Current time when button is clicked
 
         const requestData = {
             itemId: item._id,
             uid: userInfo.uid,
-            endTime: endTime.toISOString()
+            endTime: actualEndTime.toISOString()
+        };
+
+        fetch(`http://localhost:5001/cancel-auction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestData)
+        })
+            .then(async response => {
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert("Auction cancelled successfully.");
+                    setShowDisplayModal(false);
+                    // Refresh user listings
+                    if (fetchUserListings) {
+                        fetchUserListings(userInfo.uid);
+                    }
+                } else {
+                    // Server returned an error with JSON payload
+                    console.log("Server error response:", data);
+                    throw new Error(data.error || data.message || `Server error status: ${response.status}`);
+                }
+            })
+            .catch(err => {
+                console.error("Error cancelling auction:", err);
+                alert(err.message);
+            });
+    };
+
+    const endAuction = () => {
+        // Function to end the auction and notify the winner
+
+        let actualEndTime = new Date(); // Current time when button is clicked
+
+        const requestData = {
+            itemId: item._id,
+            uid: userInfo.uid,
+            endTime: actualEndTime.toISOString()
         };
 
         console.log("Sending data to end auction:", requestData);
@@ -117,8 +167,10 @@ const UserItems = ({ userInfo, item }) => {
             .then(data => {
                 alert("Auction ended successfully and winner notified.");
                 setShowDisplayModal(false);
-                // Optionally, refresh user listings
-                fetchUserListings(userInfo.uid);
+                // Refresh user listings
+                if (fetchUserListings) {
+                    fetchUserListings(userInfo.uid);
+                }
             })
             .catch(err => {
                 console.error("Error ending auction:", err);
@@ -148,7 +200,7 @@ const UserItems = ({ userInfo, item }) => {
                     <img src={item.imageUrl} alt={item.title} width="150" />
                     <p>{item.description}</p>
                     <p>Highest Bid: {item.currentBid ? `$${formatPrice(item.currentBid)}` : "No bids."}</p>
-                    <p>Winner: {item.winnerUid ? winnerDisplayName : "No winner yet"}</p>
+                    <p>Winner: {winnerDisplayName || "No winner"}</p>
                     <p>Created At: {new Date(item.createdAt).toLocaleString()}</p>
                     <p>Ended At: {new Date(item.endAt).toLocaleString()}</p>
                     <button onClick={() => setShowBidHistoryModal(true)}>View Bid History</button>
@@ -159,9 +211,9 @@ const UserItems = ({ userInfo, item }) => {
                         <div className="item-modal">
                             <h3>Close Auction</h3>
                             <p>Are you sure you want to close this auction?</p>
+                            <button onClick={() => { cancelAuction() }}>Cancel Auction & Declare No Winner</button>
                             <button onClick={() => endAuction()}>End Auction & Notify Winner </button>
-                            <p className="warning-message">Note: This will notify the highest bidder and close the auction.</p>
-                            <button onClick={() => setShowDisplayModal(false)}>Cancel</button>
+                            <button onClick={() => setShowDisplayModal(false)}>Return</button>
                         </div>
                     </div>)
             }
