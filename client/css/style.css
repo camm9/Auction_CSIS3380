@@ -242,7 +242,7 @@
             border: none;
             border-radius: 5px;
             padding: 10px 15px;
-            margin: 10px auto;
+            margin: 10px 10px;
             cursor: pointer;
             transition: background-color 0.3s ease-out;
         }
@@ -272,6 +272,17 @@
             font-weight: bold;
             margin-top: 10px;
         }
+
+        /* Canceling an auction */
+        .cancel-auction:hover {
+            background-color: #c0392b;
+        }
+
+        /* Close Auction Button */
+        .close-auction:hover {
+            background-color: #27ae60;
+        }
+
 
         /* Bid History Modal Styles */
         .bid-history-modal {
@@ -451,8 +462,6 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
             transition: background-color 0.3s ease, transform 0.1s ease;
             min-width: 80px;
         }

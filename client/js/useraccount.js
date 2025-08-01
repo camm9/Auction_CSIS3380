@@ -69,7 +69,7 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
                 try {
                     // Check if there's no winner first
                     if (item.winnerUid === null || item.winnerUid === undefined) {
-                        setWinnerDisplayName("No Winner");
+                        setWinnerDisplayName("No Winner (Cancelled)");
                         return;
                     }
 
@@ -211,8 +211,8 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
                         <div className="item-modal">
                             <h3>Close Auction</h3>
                             <p>Are you sure you want to close this auction?</p>
-                            <button onClick={() => { cancelAuction() }}>Cancel Auction & Declare No Winner</button>
-                            <button onClick={() => endAuction()}>End Auction & Notify Winner </button>
+                            <button className="cancel-auction" onClick={() => { cancelAuction() }}>Cancel Auction & Declare No Winner</button>
+                            <button className="close-auction" onClick={() => endAuction()}>End Auction & Notify Winner </button>
                             <button onClick={() => setShowDisplayModal(false)}>Return</button>
                         </div>
                     </div>)
