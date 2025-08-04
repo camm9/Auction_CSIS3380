@@ -2,6 +2,30 @@
   "version": 2,
   "routes": [
     {
+      "src": "/api/user/(.*)",
+      "dest": "/api/user"
+    },
+    {
+      "src": "/api/item/(.*)",
+      "dest": "/api/item"
+    },
+    {
+      "src": "/api/items",
+      "dest": "/api/item"
+    },
+    {
+      "src": "/api/user_items",
+      "dest": "/api/user"
+    },
+    {
+      "src": "/api/cancel-auction",
+      "dest": "/api/auction"
+    },
+    {
+      "src": "/api/end-auction",
+      "dest": "/api/auction"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
