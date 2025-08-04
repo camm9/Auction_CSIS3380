@@ -107,7 +107,21 @@
                 const response = await fetch(`${baseURL}/api/test`);
                 const data = await response.text();
 
-                log('basic-result', `Status: ${response.status}\nResponse: ${data}`);
+                let resultMessage = `Status: ${response.status}\n`;
+
+                if (data && data.trim() && !data.includes('<!DOCTYPE')) {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        resultMessage += `✅ API Response: ${JSON.stringify(jsonData, null, 2)}`;
+                        log('basic-result', resultMessage);
+                    } catch (e) {
+                        resultMessage += `Response: ${data}`;
+                        log('basic-result', resultMessage);
+                    }
+                } else {
+                    resultMessage += `❌ No valid API response - got HTML instead`;
+                    log('basic-result', resultMessage, true);
+                }
             } catch (error) {
                 log('basic-result', `Error: ${error.message}`, true);
             }
@@ -162,10 +176,24 @@
                     const data = await response.text();
 
                     results += `${endpoint.method} ${endpoint.url}: ${response.status}\n`;
-                    if (response.status !== 200) {
-                        results += `Response: ${data.substring(0, 200)}...\n`;
+
+                    // Check if response contains actual data even if status is not 200
+                    if (data && data.trim() && !data.includes('<!DOCTYPE')) {
+                        try {
+                            const jsonData = JSON.parse(data);
+                            if (response.status >= 200 && response.status < 300) {
+                                results += `✅ Success\n`;
+                            } else if (response.status >= 400 && response.status < 500) {
+                                results += `⚠️ Client Error: ${jsonData.error || 'Unknown error'}\n`;
+                            } else {
+                                results += `❌ Server Error\n`;
+                            }
+                            results += `Data: ${JSON.stringify(jsonData).substring(0, 100)}...\n`;
+                        } catch (e) {
+                            results += `Response: ${data.substring(0, 200)}...\n`;
+                        }
                     } else {
-                        results += `✅ Success\n`;
+                        results += `❌ No valid response data\n`;
                     }
                     results += '\n';
                 } catch (error) {

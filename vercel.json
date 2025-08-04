@@ -2,12 +2,16 @@
   "version": 2,
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
       "src": "/",
       "dest": "/client/index.html"
     },
     {
       "src": "/debug-api.html",
-      "dest": "/debug-api.html"
+      "dest": "/client/debug-api.html"
     },
     {
       "src": "/(.*\\.(css|js|html|png|jpg|jpeg|gif|svg|ico))$",
