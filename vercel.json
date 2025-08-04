@@ -19,10 +19,5 @@
       "src": "/(.*)",
       "dest": "/client/$1"
     }
-  ],
-  "env": {
-    "MONGO_URL": "@mongo_url",
-    "Google_user": "@google_user",
-    "Google_App_Password": "@google_app_password"
-  }
+  ]
 }
