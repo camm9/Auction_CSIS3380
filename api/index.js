@@ -1,8 +1,8 @@
-import express from "express";
-import cors from "cors";
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
-import admin from "firebase-admin";
-import { createTransport } from "nodemailer";
+const express = require("express");
+const cors = require("cors");
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require("firebase-admin");
+const { createTransport } = require("nodemailer");
 
 const app = express();
 
@@ -11,6 +11,16 @@ app.use((req, res, next) => {
     console.log(`Received ${req.method} request to: ${req.path}`);
     console.log('Full URL:', req.url);
     next();
+});
+
+// Add a simple test endpoint
+app.get('/test', (req, res) => {
+    res.json({
+        message: 'API is working!',
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        url: req.url
+    });
 });
 
 app.use(cors());
@@ -679,5 +689,18 @@ app.get("/user_items", async (req, res) => {
     res.status(200).json(userItems);
 });
 
-// Export the Express app for Vercel
-export default app;
+// Export the Express app for Vercel serverless functions
+module.exports = (req, res) => {
+    // Set CORS headers for all responses
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    return app(req, res);
+};

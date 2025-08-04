@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005a8b;
+        }
+
+        .result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d00;
+        }
+
+        .success {
+            background: #e6ffe6;
+            color: #060;
+        }
+
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>API Debug Tool</h1>
+
+    <div class="test-section">
+        <h3>1. Test Basic API Connectivity</h3>
+        <button onclick="testBasicAPI()">Test /api/items</button>
+        <div id="basic-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Place Bid Endpoint</h3>
+        <input type="text" id="itemId" placeholder="Item ID" value="sample-item-id">
+        <input type="text" id="uid" placeholder="User ID" value="sample-user-id">
+        <input type="number" id="bidAmount" placeholder="Bid Amount" value="100">
+        <button onclick="testPlaceBid()">Test Place Bid</button>
+        <div id="bid-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test All API Endpoints</h3>
+        <button onclick="testAllEndpoints()">Test All Endpoints</button>
+        <div id="all-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Network Information</h3>
+        <button onclick="showNetworkInfo()">Show Network Info</button>
+        <div id="network-result" class="result"></div>
+    </div>
+
+    <script>
+        const baseURL = window.location.origin;
+
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = 'result ' + (isError ? 'error' : 'success');
+        }
+
+        async function testBasicAPI() {
+            try {
+                log('basic-result', 'Testing /api/items...');
+                const response = await fetch(`${baseURL}/api/items`);
+                const data = await response.text();
+
+                log('basic-result', `Status: ${response.status}\nResponse: ${data}`);
+            } catch (error) {
+                log('basic-result', `Error: ${error.message}`, true);
+            }
+        }
+
+        async function testPlaceBid() {
+            try {
+                const itemId = document.getElementById('itemId').value;
+                const uid = document.getElementById('uid').value;
+                const bidAmount = document.getElementById('bidAmount').value;
+
+                log('bid-result', 'Testing /api/place-bid...');
+
+                const response = await fetch(`${baseURL}/api/place-bid`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ itemId, uid, bidAmount: parseFloat(bidAmount) })
+                });
+
+                const data = await response.text();
+                log('bid-result', `Status: ${response.status}\nResponse: ${data}`);
+            } catch (error) {
+                log('bid-result', `Error: ${error.message}`, true);
+            }
+        }
+
+        async function testAllEndpoints() {
+            const endpoints = [
+                { method: 'GET', url: '/api/items' },
+                { method: 'GET', url: '/api/user/info?uid=test' },
+                { method: 'GET', url: '/api/user_items?uid=test' },
+                { method: 'POST', url: '/api/sign-in', body: { email: 'test@test.com' } },
+                { method: 'POST', url: '/api/displayname', body: { uid: 'test', displayName: 'Test User' } }
+            ];
+
+            let results = 'Testing all endpoints:\n\n';
+
+            for (const endpoint of endpoints) {
+                try {
+                    const options = {
+                        method: endpoint.method,
+                        headers: { 'Content-Type': 'application/json' }
+                    };
+
+                    if (endpoint.body) {
+                        options.body = JSON.stringify(endpoint.body);
+                    }
+
+                    const response = await fetch(`${baseURL}${endpoint.url}`, options);
+                    const data = await response.text();
+
+                    results += `${endpoint.method} ${endpoint.url}: ${response.status}\n`;
+                    if (response.status !== 200) {
+                        results += `Response: ${data.substring(0, 200)}...\n`;
+                    }
+                    results += '\n';
+                } catch (error) {
+                    results += `${endpoint.method} ${endpoint.url}: ERROR - ${error.message}\n\n`;
+                }
+            }
+
+            log('all-result', results);
+        }
+
+        function showNetworkInfo() {
+            const info = `
+Current URL: ${window.location.href}
+Base URL: ${baseURL}
+User Agent: ${navigator.userAgent}
+Time: ${new Date().toISOString()}
+            `;
+            log('network-result', info);
+        }
+
+        // Test basic connectivity on page load
+        window.onload = function () {
+            showNetworkInfo();
+            testBasicAPI();
+        };
+    </script>
+</body>
+
+</html>
