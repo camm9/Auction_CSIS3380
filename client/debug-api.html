@@ -154,6 +154,10 @@
                 { method: 'GET', url: '/api/items' },
                 { method: 'GET', url: '/api/user/info?uid=test-user' },
                 { method: 'GET', url: '/api/user_items?uid=test-user' },
+                { method: 'GET', url: '/api/user/bids?uid=test-user' },
+                { method: 'GET', url: '/api/user/active-bids?uid=test-user' },
+                { method: 'GET', url: '/api/user/item-bids?itemId=507f1f77bcf86cd799439011&uid=test-user' },
+                { method: 'GET', url: '/api/item/bid-history?itemId=507f1f77bcf86cd799439011' },
                 { method: 'POST', url: '/api/sign-in', body: { email: 'test@test.com' } },
                 { method: 'POST', url: '/api/displayname', body: { uid: 'test-user', displayName: 'Test User' } },
                 { method: 'POST', url: '/api/place-bid', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', bidAmount: 100 } }
