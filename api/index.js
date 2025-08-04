@@ -360,7 +360,7 @@ app.post('/end-auction', async (req, res) => {
     }
 });
 
-app.post('/api/send-winner-email', async (req, res) => {
+app.post('/send-winner-email', async (req, res) => {
     console.log("Received request to send winner email");
     const { winnerEmail, itemTitle, winningBid } = req.body;
 
@@ -535,7 +535,7 @@ app.get('/user/bids', async (req, res) => {
     }
 });
 
-app.get('/api/item/bid-history', async (req, res) => {
+app.get('/item/bid-history', async (req, res) => {
     const itemId = req.query.itemId;
     console.log("Received itemId for bid history:", itemId);
 
@@ -582,7 +582,7 @@ app.get('/api/item/bid-history', async (req, res) => {
     }
 });
 
-app.get('/api/user/item-bids', async (req, res) => {
+app.get('/user/item-bids', async (req, res) => {
     const { itemId, uid } = req.query;
     console.log("Received itemId and uid for user's item bids:", itemId, uid);
 
@@ -620,12 +620,12 @@ app.get('/user/info/', async (req, res) => {
     res.json(userInfo);
 })
 
-app.get("/api/items", async (req, res) => {
+app.get("/items", async (req, res) => {
     const items = await readItems();
     res.json(items);
 });
 
-app.get("/api/user_items", async (req, res) => {
+app.get("/user_items", async (req, res) => {
     const userId = req.query.uid;
     const items = await readItems();
     const userItems = items.filter(item => item.uid === userId);

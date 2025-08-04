@@ -74,7 +74,7 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
                     }
 
                     // Only make API call if there's actually a winnerUid
-                    const response = await fetch(`/api/user/info?uid=${item.winnerUid}`);
+                    const response = await fetch(`/api/user/info/?uid=${item.winnerUid}`);
                     if (!response.ok) {
                         throw new Error(`Error fetching user info: ${response.statusText}`);
                     }
@@ -560,7 +560,7 @@ const App = () => {
     //get user info from MongoDB
     useEffect(() => {
         if (!user) return;
-        fetch("/api/user/info?" + new URLSearchParams({ uid: user.uid }))
+        fetch("/api/user/info/?" + new URLSearchParams({ uid: user.uid }))
             .then(res => res.json())
             .then(data => { setUserInfo(data) })
             .catch(err => console.error("Error fetching user info:", err));
