@@ -1,11 +1,17 @@
-const express = require("express");
-const cors = require("cors");
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const admin = require("firebase-admin");
-const { createTransport } = require("nodemailer");
-const { sendMail, sendOutbidEmail } = require("../server/nodemailer.js");
+import express from "express";
+import cors from "cors";
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
+import admin from "firebase-admin";
+import { createTransport } from "nodemailer";
 
 const app = express();
+
+// Add logging middleware to debug routing issues
+app.use((req, res, next) => {
+    console.log(`Received ${req.method} request to: ${req.path}`);
+    console.log('Full URL:', req.url);
+    next();
+});
 
 app.use(cors());
 app.use(express.json());
@@ -75,6 +81,46 @@ async function readUserInfo(uid) {
     } catch (err) {
         console.error("Error trying to read user info from db: ", err)
         return null;
+    }
+}
+
+// Email functions (moved from ../server/nodemailer.js for ES module compatibility)
+async function sendMail(to, subject, text) {
+    try {
+        const info = await transporter.sendMail({
+            from: "admin@csis3380auction.com",
+            to: to,
+            subject: subject,
+            text: text,
+        });
+        console.log("Envelope info: ", info.envelope);
+        console.log("Message sent: ", info.messageId);
+        return info;
+    } catch (error) {
+        console.error("Error sending email:", error);
+        throw error;
+    }
+}
+
+async function sendOutbidEmail(toEmail, itemTitle, newBidAmount) {
+    const subject = `You've been outbid on "${itemTitle}"`;
+    const text = `Hello,
+
+        You have been outbid on the auction item "${itemTitle}".
+        The new highest bid is $${newBidAmount}.
+
+        If you want to continue bidding, place a new bid before the auction closes.
+
+        Thank you,
+        Auction Team`;
+
+    try {
+        const info = await sendMail(toEmail, subject, text);
+        console.log("Outbid email sent successfully:", info);
+        return { success: true, info };
+    } catch (error) {
+        console.error("Error sending outbid email:", error);
+        throw new Error("Failed to send outbid email");
     }
 }
 
@@ -360,7 +406,7 @@ app.post('/end-auction', async (req, res) => {
     }
 });
 
-app.post('/api/send-winner-email', async (req, res) => {
+app.post('/send-winner-email', async (req, res) => {
     console.log("Received request to send winner email");
     const { winnerEmail, itemTitle, winningBid } = req.body;
 
@@ -535,7 +581,7 @@ app.get('/user/bids', async (req, res) => {
     }
 });
 
-app.get('/api/item/bid-history', async (req, res) => {
+app.get('/item/bid-history', async (req, res) => {
     const itemId = req.query.itemId;
     console.log("Received itemId for bid history:", itemId);
 
@@ -582,7 +628,7 @@ app.get('/api/item/bid-history', async (req, res) => {
     }
 });
 
-app.get('/api/user/item-bids', async (req, res) => {
+app.get('/user/item-bids', async (req, res) => {
     const { itemId, uid } = req.query;
     console.log("Received itemId and uid for user's item bids:", itemId, uid);
 
@@ -615,17 +661,17 @@ app.get('/api/user/item-bids', async (req, res) => {
     }
 });
 
-app.get('/user/info/', async (req, res) => {
+app.get('/user/info', async (req, res) => {
     const userInfo = await readUserInfo(req.query.uid);
     res.json(userInfo);
 })
 
-app.get("/api/items", async (req, res) => {
+app.get("/items", async (req, res) => {
     const items = await readItems();
     res.json(items);
 });
 
-app.get("/api/user_items", async (req, res) => {
+app.get("/user_items", async (req, res) => {
     const userId = req.query.uid;
     const items = await readItems();
     const userItems = items.filter(item => item.uid === userId);
@@ -633,4 +679,5 @@ app.get("/api/user_items", async (req, res) => {
     res.status(200).json(userItems);
 });
 
-module.exports = app;
+// Export the Express app for Vercel
+export default app;
