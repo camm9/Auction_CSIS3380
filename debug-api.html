@@ -103,17 +103,15 @@
 
         async function testBasicAPI() {
             try {
-                log('basic-result', 'Testing /api/items...');
-                const response = await fetch(`${baseURL}/api/items`);
+                log('basic-result', 'Testing /api/test...');
+                const response = await fetch(`${baseURL}/api/test`);
                 const data = await response.text();
 
                 log('basic-result', `Status: ${response.status}\nResponse: ${data}`);
             } catch (error) {
                 log('basic-result', `Error: ${error.message}`, true);
             }
-        }
-
-        async function testPlaceBid() {
+        } async function testPlaceBid() {
             try {
                 const itemId = document.getElementById('itemId').value;
                 const uid = document.getElementById('uid').value;
@@ -138,11 +136,9 @@
 
         async function testAllEndpoints() {
             const endpoints = [
+                { method: 'GET', url: '/api/test' },
                 { method: 'GET', url: '/api/items' },
-                { method: 'GET', url: '/api/user/info?uid=test' },
-                { method: 'GET', url: '/api/user_items?uid=test' },
-                { method: 'POST', url: '/api/sign-in', body: { email: 'test@test.com' } },
-                { method: 'POST', url: '/api/displayname', body: { uid: 'test', displayName: 'Test User' } }
+                { method: 'POST', url: '/api/place-bid', body: { itemId: 'test', uid: 'test', bidAmount: 100 } }
             ];
 
             let results = 'Testing all endpoints:\n\n';
@@ -172,9 +168,7 @@
             }
 
             log('all-result', results);
-        }
-
-        function showNetworkInfo() {
+        } function showNetworkInfo() {
             const info = `
 Current URL: ${window.location.href}
 Base URL: ${baseURL}
