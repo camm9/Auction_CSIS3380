@@ -12,7 +12,7 @@ const DisplayNameModal = ({ onSubmit }) => {
         try {
             // This will create a display name for the user in mongo and not in FB
             const uid = window.auth.currentUser.uid;
-            await fetch("http://localhost:5001/displayname", {
+            await fetch("/api/displayname", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ uid, displayName: name })
@@ -65,7 +65,7 @@ const SignIn = ({ onSuccess, onRegister }) => {
                 if (onRegister) onRegister();
             }
 
-            await fetch("http://localhost:5001/sign-in", {
+            await fetch("/api/sign-in", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email })
@@ -245,7 +245,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     useEffect(() => {
         const fetchActiveBids = async () => {
             try {
-                const response = await fetch(`http://localhost:5001/user/active-bids?uid=${user.uid}`);
+                const response = await fetch(`/api/user/active-bids?uid=${user.uid}`);
                 const data = await response.json();
                 if (response.ok) {
                     setActiveBidsCount(data.count);
@@ -264,7 +264,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     const fetchUserBidHistory = async () => {
         try {
             setLoadingBidHistory(true);
-            const response = await fetch(`http://localhost:5001/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
+            const response = await fetch(`/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
 
             if (!response.ok) {
                 throw new Error(`Error fetching bid history: ${response.statusText}`);
@@ -284,7 +284,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
     useEffect(() => {
         const checkUserBids = async () => {
             try {
-                const response = await fetch(`http://localhost:5001/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
+                const response = await fetch(`/api/user/item-bids?itemId=${item._id}&uid=${user.uid}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.length > 0) {
@@ -313,7 +313,7 @@ const ItemModal = ({ item, onClose, user, onBidSuccess }) => {
         }
 
         try {
-            const response = await fetch('http://localhost:5001/place-bid', {
+            const response = await fetch('/api/place-bid', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -479,7 +479,7 @@ const App = () => {
 
     // Get items from mongo
     useEffect(() => {
-        fetch("http://localhost:5001/api/items")
+        fetch("/api/items")
             .then(res => res.json())
             .then(data => setItems(data))
             .catch(err => console.error("Error fetching items:", err));
@@ -505,7 +505,7 @@ const App = () => {
     }, [user, items]);
 
     const refreshItems = async () => {
-        const res = await fetch("http://localhost:5001/api/items");
+        const res = await fetch("/api/items");
         const data = await res.json();
         setItems(data);
 

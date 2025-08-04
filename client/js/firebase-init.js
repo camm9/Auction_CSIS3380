@@ -18,7 +18,7 @@ window.registerUser = async function (email, password) {
     const userCredentials = createUserWithEmailAndPassword(auth, email, password);
 
     // sends a post to sign-in to register user in mongoDB at same time as fb registration
-    await fetch("http://localhost:5001/sign-in", {
+    await fetch("/api/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
