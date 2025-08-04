@@ -1,4 +1,5 @@
 const { MongoClient, ObjectId } = require('mongodb');
+const { sendWinnerEmail } = require('./email-utils');
 
 const client = new MongoClient(process.env.MONGO_URL);
 
@@ -18,12 +19,16 @@ async function readUserInfo(uid) {
     }
 }
 
-async function sendWinnerEmail(winnerEmail, itemTitle, winningBid, winnerUsername) {
-    // For now, just log the email details
-    console.log(`Would send winner email to: ${winnerEmail}`);
-    console.log(`Subject: Congratulations! You won the auction for ${itemTitle}`);
-    console.log(`Winner: ${winnerUsername}, Winning Bid: $${winningBid}`);
-    return { success: true };
+async function sendWinnerEmailNotification(winnerEmail, itemTitle, winningBid, winnerUsername) {
+    try {
+        console.log(`Sending winner email to: ${winnerEmail}`);
+        const result = await sendWinnerEmail(winnerEmail, itemTitle, winningBid, winnerUsername);
+        console.log("Winner email sent successfully:", result.messageId);
+        return { success: true, result };
+    } catch (error) {
+        console.error("Error sending winner email:", error);
+        throw error;
+    }
 }
 
 async function cancelAuction(itemId, uid, endTime) {
@@ -130,15 +135,17 @@ async function endAuction(itemId, uid, endTime) {
             try {
                 const winnerInfo = await readUserInfo(winnerUid);
                 if (winnerInfo && winnerInfo.email) {
-                    await sendWinnerEmail(
+                    await sendWinnerEmailNotification(
                         winnerInfo.email,
-                        "auction item",
+                        "auction item", // You might want to get the actual item title
                         highestBid,
                         winnerInfo.displayName || winnerInfo.email
                     );
+                    console.log("Winner email sent to:", winnerInfo.email);
                 }
             } catch (error) {
                 console.error("Error sending winner email:", error);
+                // Continue even if email fails
             }
         }
 

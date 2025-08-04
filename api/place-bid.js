@@ -1,24 +1,5 @@
 const { MongoClient, ObjectId } = require('mongodb');
-// Commenting out Firebase for now to test basic functionality
-// const admin = require("firebase-admin");
-
-// Initialize Firebase Admin - commented out for testing
-// if (!admin.apps.length) {
-//     admin.initializeApp({
-//         credential: admin.credential.cert({
-//             type: "service_account",
-//             project_id: process.env.FIREBASE_PROJECT_ID,
-//             private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-//             private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-//             client_email: process.env.FIREBASE_CLIENT_EMAIL,
-//             client_id: process.env.FIREBASE_CLIENT_ID,
-//             auth_uri: process.env.FIREBASE_AUTH_URI,
-//             token_uri: process.env.FIREBASE_TOKEN_URI,
-//             auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-//             client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
-//         })
-//     });
-// }
+const { sendOutbidEmail } = require('./email-utils');
 
 const client = new MongoClient(process.env.MONGO_URL);
 
@@ -91,6 +72,7 @@ module.exports = async function handler(req, res) {
     const dbName = "Auction_CSIS3380";
     const itemObjectId = new ObjectId(itemId);
     let session;
+    let emailInfo = null; // Store email info for sending after transaction
 
     try {
         await client.connect();
@@ -126,6 +108,24 @@ module.exports = async function handler(req, res) {
             const currentBid = item.currentBid || item.startingBid;
             if (numericBidAmount <= currentBid) {
                 throw new Error(`Bid must be higher than $${currentBid}`);
+            }
+
+            // Find previous highest active bid (excluding current user) for outbid notification
+            const previousHighestBid = await bidsCollection.findOne(
+                { itemId: itemObjectId, isActive: true, userId: { $ne: uid } },
+                { sort: { bidAmount: -1 }, session }
+            );
+
+            if (previousHighestBid) {
+                const previousUser = await readUserInfo(previousHighestBid.userId);
+                if (previousUser?.email) {
+                    emailInfo = {
+                        to: previousUser.email,
+                        title: item.title,
+                        newBid: numericBidAmount,
+                    };
+                    console.log('Outbid email will be sent to:', previousUser.email);
+                }
             }
 
             const newBid = {
@@ -168,6 +168,18 @@ module.exports = async function handler(req, res) {
 
             console.log('Transaction completed successfully');
         });
+
+        // Send outbid notification email after transaction commits
+        if (emailInfo) {
+            try {
+                console.log('Sending outbid email...');
+                await sendOutbidEmail(emailInfo.to, emailInfo.title, emailInfo.newBid);
+                console.log('Outbid email sent successfully to:', emailInfo.to);
+            } catch (emailError) {
+                console.error("Failed to send outbid email:", emailError);
+                // Continue without failing the request
+            }
+        }
 
         res.status(200).json({
             message: "Bid placed successfully",
