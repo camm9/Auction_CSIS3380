@@ -138,7 +138,11 @@
             const endpoints = [
                 { method: 'GET', url: '/api/test' },
                 { method: 'GET', url: '/api/items' },
-                { method: 'POST', url: '/api/place-bid', body: { itemId: 'test', uid: 'test', bidAmount: 100 } }
+                { method: 'GET', url: '/api/user/info?uid=test-user' },
+                { method: 'GET', url: '/api/user_items?uid=test-user' },
+                { method: 'POST', url: '/api/sign-in', body: { email: 'test@test.com' } },
+                { method: 'POST', url: '/api/displayname', body: { uid: 'test-user', displayName: 'Test User' } },
+                { method: 'POST', url: '/api/place-bid', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', bidAmount: 100 } }
             ];
 
             let results = 'Testing all endpoints:\n\n';
@@ -160,6 +164,8 @@
                     results += `${endpoint.method} ${endpoint.url}: ${response.status}\n`;
                     if (response.status !== 200) {
                         results += `Response: ${data.substring(0, 200)}...\n`;
+                    } else {
+                        results += `✅ Success\n`;
                     }
                     results += '\n';
                 } catch (error) {
