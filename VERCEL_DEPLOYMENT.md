@@ -1,5 +1,5 @@
 # Vercel Deployment Guide for Auction CSIS3380
-
+# Testing push
 ## Prerequisites
 1. A Vercel account (vercel.com)
 2. Vercel CLI installed globally: `npm install -g vercel`
