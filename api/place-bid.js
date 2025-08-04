@@ -1,23 +1,24 @@
 const { MongoClient, ObjectId } = require('mongodb');
-const admin = require("firebase-admin");
+// Commenting out Firebase for now to test basic functionality
+// const admin = require("firebase-admin");
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            type: "service_account",
-            project_id: process.env.FIREBASE_PROJECT_ID,
-            private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-            private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            client_email: process.env.FIREBASE_CLIENT_EMAIL,
-            client_id: process.env.FIREBASE_CLIENT_ID,
-            auth_uri: process.env.FIREBASE_AUTH_URI,
-            token_uri: process.env.FIREBASE_TOKEN_URI,
-            auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-            client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
-        })
-    });
-}
+// Initialize Firebase Admin - commented out for testing
+// if (!admin.apps.length) {
+//     admin.initializeApp({
+//         credential: admin.credential.cert({
+//             type: "service_account",
+//             project_id: process.env.FIREBASE_PROJECT_ID,
+//             private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+//             private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+//             client_email: process.env.FIREBASE_CLIENT_EMAIL,
+//             client_id: process.env.FIREBASE_CLIENT_ID,
+//             auth_uri: process.env.FIREBASE_AUTH_URI,
+//             token_uri: process.env.FIREBASE_TOKEN_URI,
+//             auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+//             client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+//         })
+//     });
+// }
 
 const client = new MongoClient(process.env.MONGO_URL);
 
@@ -43,6 +44,9 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
+    console.log('place-bid handler called:', req.method, req.url);
+    console.log('Request body:', req.body);
+
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -53,10 +57,19 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // First, let's just test if we can receive the request properly
+    if (!req.body) {
+        return res.status(400).json({ error: 'No request body received' });
+    }
+
     const { itemId, uid, bidAmount } = req.body;
+    console.log('Parsed params:', { itemId, uid, bidAmount });
 
     if (!itemId || !uid || bidAmount === undefined) {
-        return res.status(400).json({ error: "Please input a bid amount" });
+        return res.status(400).json({
+            error: "Please input a bid amount",
+            received: { itemId, uid, bidAmount }
+        });
     }
 
     const numericBidAmount = Number(bidAmount);
@@ -64,32 +77,49 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid bid amount" });
     }
 
+    // Test MongoDB connection first
+    if (!process.env.MONGO_URL) {
+        return res.status(500).json({ error: "MongoDB URL not configured" });
+    }
+
     if (!ObjectId.isValid(itemId)) {
         return res.status(400).json({ error: "Invalid item ID format" });
     }
 
+    console.log('All validations passed, attempting database connection...');
+
     const dbName = "Auction_CSIS3380";
     const itemObjectId = new ObjectId(itemId);
-    const session = client.startSession();
+    let session;
 
     try {
         await client.connect();
+        console.log('MongoDB connected successfully');
+
         const db = client.db(dbName);
         const itemsCollection = db.collection("Items");
         const bidsCollection = db.collection("Bids");
 
+        session = client.startSession();
+
         let result;
         await session.withTransaction(async () => {
+            console.log('Starting transaction...');
+
             const activeBidsCount = await bidsCollection.countDocuments({
                 userId: uid,
                 isActive: true
             }, { session });
+
+            console.log('Active bids count:', activeBidsCount);
 
             if (activeBidsCount >= 5) {
                 throw new Error("You can't have more than 5 active bids at once");
             }
 
             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+            console.log('Found item:', item ? 'Yes' : 'No');
+
             if (!item) throw new Error("Item not found");
             if (item.isClosed) throw new Error("Auction for this item is closed");
 
@@ -135,6 +165,8 @@ export default async function handler(req, res) {
                 bidId: bidResult.insertedId,
                 updated: 1
             };
+
+            console.log('Transaction completed successfully');
         });
 
         res.status(200).json({
@@ -143,8 +175,13 @@ export default async function handler(req, res) {
         });
     } catch (err) {
         console.error("Error placing bid:", err);
-        res.status(400).json({ error: err.message || "Internal Server Error" });
+        res.status(400).json({
+            error: err.message || "Internal Server Error",
+            details: err.toString()
+        });
     } finally {
-        await session.endSession();
+        if (session) {
+            await session.endSession();
+        }
     }
 }
