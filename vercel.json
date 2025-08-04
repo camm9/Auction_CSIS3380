@@ -15,10 +15,5 @@
       "src": "/(.*)",
       "dest": "/client/$1"
     }
-  ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
