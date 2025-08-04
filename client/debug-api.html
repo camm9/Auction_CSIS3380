@@ -81,13 +81,22 @@
     </div>
 
     <div class="test-section">
-        <h3>3. Test All API Endpoints</h3>
+        <h3>4. Test Auction Closing</h3>
+        <input type="text" id="closeItemId" placeholder="Item ID to close" value="507f1f77bcf86cd799439011">
+        <input type="text" id="closeUid" placeholder="Owner User ID" value="test-user">
+        <button onclick="testCancelAuction()">Test Cancel Auction</button>
+        <button onclick="testEndAuction()">Test End Auction</button>
+        <div id="close-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Test All API Endpoints</h3>
         <button onclick="testAllEndpoints()">Test All Endpoints</button>
         <div id="all-result" class="result"></div>
     </div>
 
     <div class="test-section">
-        <h3>4. Network Information</h3>
+        <h3>6. Network Information</h3>
         <button onclick="showNetworkInfo()">Show Network Info</button>
         <div id="network-result" class="result"></div>
     </div>
@@ -148,6 +157,52 @@
             }
         }
 
+        async function testCancelAuction() {
+            try {
+                const itemId = document.getElementById('closeItemId').value;
+                const uid = document.getElementById('closeUid').value;
+                const endTime = new Date().toISOString();
+
+                log('close-result', 'Testing /api/cancel-auction...');
+
+                const response = await fetch(`${baseURL}/api/cancel-auction`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ itemId, uid, endTime })
+                });
+
+                const data = await response.text();
+                log('close-result', `Status: ${response.status}\nResponse: ${data}`);
+            } catch (error) {
+                log('close-result', `Error: ${error.message}`, true);
+            }
+        }
+
+        async function testEndAuction() {
+            try {
+                const itemId = document.getElementById('closeItemId').value;
+                const uid = document.getElementById('closeUid').value;
+                const endTime = new Date().toISOString();
+
+                log('close-result', 'Testing /api/end-auction...');
+
+                const response = await fetch(`${baseURL}/api/end-auction`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ itemId, uid, endTime })
+                });
+
+                const data = await response.text();
+                log('close-result', `Status: ${response.status}\nResponse: ${data}`);
+            } catch (error) {
+                log('close-result', `Error: ${error.message}`, true);
+            }
+        }
+
         async function testAllEndpoints() {
             const endpoints = [
                 { method: 'GET', url: '/api/test' },
@@ -160,7 +215,10 @@
                 { method: 'GET', url: '/api/item/bid-history?itemId=507f1f77bcf86cd799439011' },
                 { method: 'POST', url: '/api/sign-in', body: { email: 'test@test.com' } },
                 { method: 'POST', url: '/api/displayname', body: { uid: 'test-user', displayName: 'Test User' } },
-                { method: 'POST', url: '/api/place-bid', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', bidAmount: 100 } }
+                { method: 'POST', url: '/api/create-new-listing', body: { uid: 'test-user', title: 'Test Item', description: 'Test Description', imageUrl: 'https://example.com/image.jpg', createdBy: 'Test User', startingBid: 10, endAt: '2025-12-31T23:59:59Z', itemCategory: 'Other' } },
+                { method: 'POST', url: '/api/place-bid', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', bidAmount: 100 } },
+                { method: 'POST', url: '/api/cancel-auction', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', endTime: '2025-08-04T23:59:59Z' } },
+                { method: 'POST', url: '/api/end-auction', body: { itemId: '507f1f77bcf86cd799439011', uid: 'test-user', endTime: '2025-08-04T23:59:59Z' } }
             ];
 
             let results = 'Testing all endpoints:\n\n';
