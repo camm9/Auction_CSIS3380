@@ -74,7 +74,7 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
                     }
 
                     // Only make API call if there's actually a winnerUid
-                    const response = await fetch(`http://localhost:5001/user/info?uid=${item.winnerUid}`);
+                    const response = await fetch(`/api/user/info?uid=${item.winnerUid}`);
                     if (!response.ok) {
                         throw new Error(`Error fetching user info: ${response.statusText}`);
                     }
@@ -108,7 +108,7 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
             endTime: actualEndTime.toISOString()
         };
 
-        fetch(`http://localhost:5001/cancel-auction`, {
+        fetch(`/api/cancel-auction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
@@ -148,7 +148,7 @@ const UserItems = ({ userInfo, item, fetchUserListings }) => {
 
         console.log("Sending data to end auction:", requestData);
 
-        fetch(`http://localhost:5001/end-auction`, {
+        fetch(`/api/end-auction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
@@ -239,7 +239,7 @@ const BidHistoryModal = ({ itemId, itemTitle, onClose }) => {
         const fetchBidHistory = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`http://localhost:5001/api/item/bid-history?itemId=${itemId}`);
+                const response = await fetch(`/api/item/bid-history?itemId=${itemId}`);
 
                 if (!response.ok) {
                     throw new Error(`Error fetching bid history: ${response.statusText}`);
@@ -334,7 +334,7 @@ const UserBids = ({ userInfo }) => {
         const fetchBidHistory = async () => {
             try {
                 // Get user bid history
-                const answer = await fetch(`http://localhost:5001/user/bids?uid=${userInfo.uid}`);
+                const answer = await fetch(`/api/user/bids?uid=${userInfo.uid}`);
                 const data = await answer.json();
 
                 if (answer.ok) {
@@ -415,7 +415,7 @@ const CreateANewListing = ({ userInfo, fetchUserListings, user }) => {
 
         try {
             // Create new listing
-            const response = await fetch("http://localhost:5001/create-new-listing", {
+            const response = await fetch("/api/create-new-listing", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -560,7 +560,7 @@ const App = () => {
     //get user info from MongoDB
     useEffect(() => {
         if (!user) return;
-        fetch("http://localhost:5001/user/info?" + new URLSearchParams({ uid: user.uid }))
+        fetch("/api/user/info?" + new URLSearchParams({ uid: user.uid }))
             .then(res => res.json())
             .then(data => { setUserInfo(data) })
             .catch(err => console.error("Error fetching user info:", err));
@@ -568,7 +568,7 @@ const App = () => {
 
     // get items from MongoDB and sort for user listings
     const fetchUserListings = (uid) => {
-        fetch("http://localhost:5001/api/user_items?" + new URLSearchParams({ uid }))
+        fetch("/api/user_items?" + new URLSearchParams({ uid }))
             .then(res => res.json())
             .then(data => setUserListings(data))
             .catch(err => console.error("Error fetching items:", err));
