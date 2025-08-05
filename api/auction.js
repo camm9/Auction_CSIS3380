@@ -90,9 +90,10 @@ async function endAuction(itemId, uid, endTime) {
 
         let winnerUid = null;
         let highestBid = null;
+        let item = null;
 
         await session.withTransaction(async () => {
-            const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
+            item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
             if (!item || item.uid !== uid) {
                 throw new Error("Item not found or not owned by user");
             }
