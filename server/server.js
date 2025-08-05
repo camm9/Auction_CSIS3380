@@ -7,10 +7,11 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./auctioncsis3380-firebase-adminsdk.json");
 const { createTransport } = require("nodemailer");
 const { sendMail, sendOutbidEmail } = require("./nodemailer.js");
-
+const path = require('path');
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../client')));
 
 
 const PORT = process.env.PORT || 5001;
@@ -74,7 +75,7 @@ async function readUserInfo(uid) {
     }
 }
 
-app.post('/create-new-listing', async (req, res) => {
+app.post('/api/create-new-listing', async (req, res) => {
     const { uid, title, description, imageUrl, createdBy, startingBid, endAt, itemCategory } = req.body;
     const createdAt = Date.now();
     const isClosed = false;
@@ -126,7 +127,7 @@ app.post('/create-new-listing', async (req, res) => {
     }
 })
 
-app.post("/displayname", async (req, res) => {
+app.post("/api/displayname", async (req, res) => {
     const { uid, displayName } = req.body;
     try {
         await client.connect();
@@ -153,7 +154,7 @@ app.post("/displayname", async (req, res) => {
 })
 
 
-app.post('/sign-in', async (req, res) => {
+app.post('/api/sign-in', async (req, res) => {
     const { email } = req.body;
 
     try {
@@ -191,7 +192,7 @@ app.post('/sign-in', async (req, res) => {
     }
 })
 
-app.post('/cancel-auction', async (req, res) => {
+app.post('/api/cancel-auction', async (req, res) => {
     const { itemId, uid, endTime } = req.body;
     console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
 
@@ -259,7 +260,7 @@ app.post('/cancel-auction', async (req, res) => {
     }
 });
 
-app.post('/end-auction', async (req, res) => {
+app.post('/api/end-auction', async (req, res) => {
     const { itemId, uid, endTime } = req.body;
     console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
 
@@ -356,85 +357,6 @@ app.post('/end-auction', async (req, res) => {
     }
 });
 
-// app.post('/end-auction', async (req, res) => {
-//     const { itemId, uid, endTime } = req.body;
-//     console.log("Received itemId:", itemId, "uid:", uid, "endTime:", endTime);
-//     // Validate input
-//     if (!itemId || !uid || !endTime) {
-//         return res.status(400).json({ error: "Please provide itemId, uid, and endTime" });
-//     }
-
-//     if (!ObjectId.isValid(itemId)) {
-//         return res.status(400).json({ error: "Invalid item ID format" });
-//     }
-
-//     const dbName = "Auction_CSIS3380";
-//     const itemObjectId = new ObjectId(itemId);
-//     const session = client.startSession();
-
-//     try {
-//         await client.connect();
-//         const db = client.db(dbName);
-//         const itemsCollection = db.collection("Items");
-//         const bidsCollection = db.collection("Bids")
-//         // Check if the item exists and belongs to the user
-//         const item = await itemsCollection.findOne({ _id: itemObjectId });
-//         console.log("Item found in db:", item);
-//         if (!item || item.uid !== uid) {
-//             return res.status(404).json({ error: "Item not found" });
-//         }
-//         if (item.isClosed) {
-//             console.log("Auction for this item is already closed");
-//             return res.status(400).json({ error: "Auction for this item is already closed" });
-//         }
-//         // Find the highest bid for the item, if no bids exist, use the starting bid
-//         const highestBid = item.currentBid || item.startingBid;
-
-//         // Find the winner of the auction
-//         let winnerUid = null;
-//         const winningBid = await bidsCollection.findOne({ itemId: itemObjectId, bidAmount: highestBid });
-//         if (!winningBid) {
-//             console.log("No winning bid found for item:", itemId);
-//         } else {
-//             winnerUid = winningBid.userId;
-//         }
-
-//         // console.log("Winner UID: ", winnerUid, "Highest Bid: ", highestBid);
-
-//         // Notify the winner via Nodemailer
-//         if (winnerUid && highestBid) {
-//             const winnerEmail = await readUserInfo(winnerUid).then(user => user.email);
-//             const winnerUsername = await readUserInfo(winnerUid).then(user => user.displayName || user.email);
-//             console.log("Winner Email: ", winnerEmail, "Winner Username: ", winnerUsername);
-//             try {
-//                 await sendWinnerEmail(winnerEmail, item.title, highestBid, winnerUsername);
-//                 console.log("Winner email sent to: ", winnerEmail);
-
-//             } catch (error) {
-//                 console.error("Error sending winner email:", error);
-//             }
-//         }
-
-//         res.status(200).json({
-//             message: "Auction ended successfully",
-//             winnerUid,
-//             highestBid
-//         });
-
-//         // Update the item to mark it as closed
-//         await itemsCollection.updateOne(
-//             { _id: itemObjectId },
-//             {
-//                 $set: { isClosed: true, endAt: new Date(endTime), winningBid: highestBid, winnerUid: winnerUid }
-//             }
-//         )
-
-//     } catch (err) {
-//         console.error("Error ending auction:", err);
-//         return res.status(500).json({ error: "Internal Server Error while trying to end auction" });
-//     }
-// });
-
 sendWinnerEmail = async (winnerEmail, itemTitle, winningBid, winnerUsername) => {
     const to = winnerEmail
     const subject = `Congratulations! You won the auction for ${itemTitle}`;
@@ -469,7 +391,7 @@ app.post('/api/send-winner-email', async (req, res) => {
     }
 
 })
-app.post('/place-bid', async (req, res) => {
+app.post('/api/place-bid', async (req, res) => {
     const { itemId, uid, bidAmount } = req.body;
 
     if (!itemId || !uid || bidAmount === undefined) {
@@ -602,320 +524,8 @@ app.post('/place-bid', async (req, res) => {
     }
 });
 
-// app.post('/place-bid', async (req, res) => {
-//     const { itemId, uid, bidAmount } = req.body;
-//     const { sendOutbidEmail } = require('./sendOutbidEmail');
 
-//     if (!itemId || !uid || bidAmount === undefined) {
-//         return res.status(400).json({ error: "Please input a bid amount" });
-//     }
-
-//     const numericBidAmount = Number(bidAmount);
-//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
-//         return res.status(400).json({ error: "Invalid bid amount" });
-//     }
-
-//     if (!ObjectId.isValid(itemId)) {
-//         return res.status(400).json({ error: "Invalid item ID format" });
-//     }
-
-//     const dbName = "Auction_CSIS3380";
-//     const itemObjectId = new ObjectId(itemId);
-//     const session = client.startSession();
-
-//     try {
-//         await client.connect();
-//         const db = client.db(dbName);
-//         const itemsCollection = db.collection("Items");
-//         const bidsCollection = db.collection("Bids");
-
-//         let result;
-//         await session.withTransaction(async () => {
-//             // 1. Check if user has reached the active bid limit (5)
-//             const activeBidsCount = await bidsCollection.countDocuments({
-//                 userId: uid,
-//                 isActive: true
-//             }, { session });
-
-//             if (activeBidsCount >= 5) {
-//                 throw new Error("You can't have more than 5 active bids at once");
-//             }
-
-//             // 2. Verify item exists and is open for bidding
-//             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
-//             if (!item) throw new Error("Item not found");
-//             if (item.isClosed) throw new Error("Auction for this item is closed");
-
-//             // 3. Verify bid is higher than current bid
-//             const currentBid = item.currentBid || item.startingBid;
-//             if (numericBidAmount <= currentBid) {
-//                 throw new Error(`Bid must be higher than $${currentBid}`);
-//             }
-
-//             // 4. Create new bid record
-//             const newBid = {
-//                 itemId: itemObjectId,
-//                 userId: uid,
-//                 bidAmount: numericBidAmount,
-//                 bidTime: new Date(),
-//                 isActive: true,
-//                 itemTitle: item.title
-//             };
-//             const bidResult = await bidsCollection.insertOne(newBid, { session });
-
-
-//             const previousHighestBid = await bidsCollection.findOne(
-//                 { itemId: itemObjectId, isActive: true, userId: { $ne: uid } },
-//                 { sort: { bidAmount: -1 }, session }
-//             );
-
-//             if (previousHighestBid) {
-//                 const previousUser = await readUserInfo(previousHighestBid.userId);
-//                 if (previousUser?.email) {
-//                 emailInfo = {
-//                     to: previousUser.email,
-//                     title: item.title,
-//                     newBid: numericBidAmount,
-//                 };
-//             }
-
-//             // 5. Update item with new current bid and winning bid
-//             await itemsCollection.updateOne(
-//                 { _id: itemObjectId },
-//                 {
-//                     $set: {
-//                         currentBid: numericBidAmount,
-//                         winningBid: bidResult.insertedId
-//                     }
-//                 },
-//                 { session }
-//             );
-
-//             // 6. Mark older active bids on this item (from other users) as inactive
-//             await bidsCollection.updateMany(
-//                 {
-//                     itemId: itemObjectId,
-//                     isActive: true,
-//                     userId: { $ne: uid }
-//                 },
-//                 {
-//                     $set: { isActive: false }
-//                 },
-//                 { session }
-//             );
-
-//             result = {
-//                 bidId: bidResult.insertedId,
-//                 updated: 1
-//             };
-//         }
-//     }
-// );
-
-//         res.status(200).json({
-//             message: "Bid placed successfully",
-//             ...result
-//         });
-
-//     } catch (err) {
-//         console.error("Error placing bid:", err);
-//         res.status(400).json({ error: err.message || "Internal Server Error" });
-//     } finally {
-//         await session.endSession();
-//     }
-// });
-
-// app.post('/place-bid', async (req, res) => {
-//     const { itemId, uid, bidAmount } = req.body;
-
-//     if (!itemId || !uid || bidAmount === undefined) {
-//         return res.status(400).json({ error: "Please input a bid amount" });
-//     }
-
-//     const numericBidAmount = Number(bidAmount);
-//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
-//         return res.status(400).json({ error: "Invalid bid amount" });
-//     }
-
-//     if (!ObjectId.isValid(itemId)) {
-//         return res.status(400).json({ error: "Invalid item ID format" });
-//     }
-
-//     const dbName = "Auction_CSIS3380";
-//     const itemObjectId = new ObjectId(itemId);
-//     const session = client.startSession();
-
-//     try {
-//         await client.connect();
-//         const db = client.db(dbName);
-//         const itemsCollection = db.collection("Items");
-//         const bidsCollection = db.collection("Bids");
-
-//         let result;
-//         await session.withTransaction(async () => {
-
-//         // 1. Check if user has reached the active bid limit (5)
-//         const activeBidsCount = await bidsCollection.countDocuments({
-//             userId: uid,
-//             status: "active"
-//         }, { session });
-
-//         if (activeBidsCount >= 5) {
-//             throw new Error("You can't have more than 5 active bids at once");
-//         }
-
-//         // 2. Verify item exists and is open for bidding
-//         const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
-//         if (!item) throw new Error("Item not found");
-//         if (item.isClosed) throw new Error("Auction for this item is closed");
-
-//         // 3. Verify bid is higher than current bid
-//         const currentBid = item.currentBid || item.startingBid;
-//         if (numericBidAmount <= currentBid) {
-//             throw new Error(`Bid must be higher than $${currentBid}`);
-//         }
-
-//         // 4. Create new bid record
-//         const newBid = {
-//             itemId: itemObjectId,
-//             userId: uid,
-//             bidAmount: numericBidAmount,
-//             bidTime: new Date(),
-//             status: "active",
-//             itemTitle: item.title
-//         };
-//         const bidResult = await bidsCollection.insertOne(newBid, { session });
-
-//         // 5. Update item with new current bid and winning bid
-//         await itemsCollection.updateOne(
-//             { _id: itemObjectId },
-//             {
-//                 $set: {
-//                     currentBid: numericBidAmount,
-//                     winningBid: bidResult.insertedId
-//                 }
-//             },
-//             { session }
-//         );
-
-//         // 6. Mark older active bids on this item (from other users) as inactive
-//         await bidsCollection.updateMany(
-//             {
-//                 itemId: itemObjectId,
-//                 status: "active",
-//                 userId: uid,
-//                     _id: { $ne: bidResult.insertedId }
-//             },
-//             {
-//                 $set: { status: "inactive" }
-//             },
-//             { session }
-//         );
-
-//         result = {
-//             bidId: bidResult.insertedId,
-//             updated: 1
-//         };
-//     });
-
-//         res.status(200).json({
-//             message: "Bid placed successfully",
-//             ...result
-//         });
-
-//     } catch (err) {
-//         console.error("Error placing bid:", err);
-//         res.status(400).json({ error: err.message || "Internal Server Error" });
-//     } finally {
-//         await session.endSession();
-//     }
-// });
-
-// app.post('/place-bid', async (req, res) => {
-//     const { itemId, uid, bidAmount } = req.body;
-
-//     if (!itemId || !uid || bidAmount === undefined) {
-//         return res.status(400).json({ error: "Please input a bid amount" });
-//     }
-
-//     const numericBidAmount = Number(bidAmount);
-//     if (isNaN(numericBidAmount) || numericBidAmount <= 0) {
-//         return res.status(400).json({ error: "Invalid bid amount" });
-//     }
-
-//     if (!ObjectId.isValid(itemId)) {
-//         return res.status(400).json({ error: "Invalid item ID format" });
-//     }
-
-//     const dbName = "Auction_CSIS3380";
-//     const itemObjectId = new ObjectId(itemId);
-//     const session = client.startSession();
-
-//     try {
-//         await client.connect();
-//         const db = client.db(dbName);
-//         const itemsCollection = db.collection("Items");
-//         const bidsCollection = db.collection("Bids");
-
-//         let result;
-//         await session.withTransaction(async () => {
-//             const item = await itemsCollection.findOne({ _id: itemObjectId }, { session });
-
-//             if (!item) {
-//                 throw new Error("Item not found");
-//             }
-//             if (item.isClosed) {
-//                 throw new Error("Auction for this item is closed");
-//             }
-
-//             const currentBid = item.currentBid || item.startingBid;
-//             if (numericBidAmount <= currentBid) {
-//                 throw new Error(`Bid must be higher than $${currentBid}`);
-//             }
-
-//             const newBid = {
-//                 itemId: itemObjectId,
-//                 userId: uid,
-//                 bidAmount: numericBidAmount,
-//                 bidTime: new Date(),
-//                 itemTitle: item.title
-//             };
-
-//             const bidResult = await bidsCollection.insertOne(newBid, { session });
-
-//             const updateResult = await itemsCollection.updateOne(
-//                 { _id: itemObjectId },
-//                 {
-//                     $set: {
-//                         currentBid: numericBidAmount,
-//                         winningBid: bidResult.insertedId
-//                     }
-//                 },
-//                 { session }
-//             );
-
-//             result = {
-//                 bidId: bidResult.insertedId,
-//                 updated: updateResult.modifiedCount
-//             };
-//         });
-
-//         res.status(200).json({
-//             message: "Bid placed successfully",
-//             ...result
-//         });
-
-//     } catch (err) {
-//         console.error("Error placing bid:", err);
-//         res.status(500).json({ error: err.message || "Internal Server Error" });
-//     }
-//     //  finally {
-//     //     await session.endSession();
-//     //     await client.close();
-//     // }
-// });
-
-app.get('/user/active-bids', async (req, res) => {
+app.get('/api/user/active-bids', async (req, res) => {
     const uid = req.query.uid;
     console.log("Received UID for active bids count:", uid);
     try {
@@ -935,26 +545,7 @@ app.get('/user/active-bids', async (req, res) => {
     }
 });
 
-// app.get('/user/bids', async (req, res) => {
-//     const uid = req.query.uid;
-//     console.log("Received UID:", uid);
-//     try {
-//         await client.connect();
-//         const dbName = "Auction_CSIS3380";
-//         const bidsCollection = client.db(dbName).collection("Bids");
-
-//         const bids = await bidsCollection.find({ userId: uid }).toArray();
-//         res.status(200).json(bids);
-//     } catch (err) {
-//         console.error("Error fetching user bids:", err);
-//         res.status(500).send("Server error fetching bids");
-//     }
-//     // finally {
-//     //     await client.close();
-//     // }
-// })
-
-app.get('/user/bids', async (req, res) => {
+app.get('/api/user/bids', async (req, res) => {
     const uid = req.query.uid;
     console.log("Received UID:", uid);
     try {
@@ -1054,7 +645,7 @@ app.get('/api/user/item-bids', async (req, res) => {
 });
 
 
-app.get('/user/info/', async (req, res) => {
+app.get('/api/user/info', async (req, res) => {
     const userInfo = await readUserInfo(req.query.uid);
     res.json(userInfo);
 })
@@ -1116,6 +707,8 @@ app.get("/api/user_items", async (req, res) => {
 // }
 
 // insertDocuments().catch(console.error);
+
+app.use(express.static(path.join(__dirname, '../client')));
 
 app.listen(PORT, () => {
     console.log(`Server listening on localhost:${PORT}`);
