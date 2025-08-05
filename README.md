@@ -2,44 +2,44 @@
 
 ## How to Use
 ###### Sign In or Register
-Sign in with your email and password. Or register with a new email and password.
-![](./doc_imgs/signin.png)
+Sign in with your email and password. Or register with a new email and password.<br>
+![](./doc_imgs/signin.png )
 
-On registration, pick a username.
+On registration, pick a username.<br>
 ![](./doc_imgs/register.png)
 
 ###### Shop for Items
-Browse items you're interested in.
+Browse items you're interested in.<br>
 ![](./doc_imgs/browse.png)
 
-Use the search bar to look for specific items.
+Use the search bar to look for specific items.<br>
 ![](./doc_imgs/search.png)
 
-Bid on items. Bids must be at least $0.10 higher than the current bid.
+Bid on items. Bids must be at least $0.10 higher than the current bid.<br>
 ![](./doc_imgs/bid.png)
 
-View all your previous bids by going to the User Account page. Scroll to bottom of page.
+View all your previous bids by going to the User Account page. Scroll to bottom of page.<br>
 ![](./doc_imgs/pastbids.png)
 
-You may only have a total of 5 active bids at one time.
+You may only have a total of 5 active bids at one time.<br>
 ![](./doc_imgs/activebidslimit.png)
 
 ###### List an Item for Sale
-In User Account page, go to modal named "Create A New Listing". Fill in the form. Images must be URL string. Users can only have 30 active items listed at a time.
+In User Account page, go to modal named "Create A New Listing". Fill in the form. Images must be URL string. Users can only have 30 active items listed at a time.<br>
 ![](./doc_imgs/createlisting.png)
 ![](./doc_imgs/30itemlimit.png)
 
-You can view your item's bid history by selecting the "View Bid History" button.
+You can view your item's bid history by selecting the "View Bid History" button.<br>
 ![](./doc_imgs/itembidhistory.png)
 
-You can end an item auction in one of two ways: cancel the auction and declare no winner or end auction and declare winner.
+You can end an item auction in one of two ways: cancel the auction and declare no winner or end auction and declare winner.<br>
 ![](./doc_imgs/closeauction.png)
 
-When you close an auction, your item listing is removed from the browse feature and the modal turns red in User Account page.
+When you close an auction, your item listing is removed from the browse feature and the modal turns red in User Account page.<br>
 ![](./doc_imgs/itemlistings.png)
 
 ###### Notifications
-Users receive email notifications when they win an auction or win they are outbid on an item.
+Users receive email notifications when they win an auction or win they are outbid on an item.<br>
 ![](./doc_imgs/winnernotification.png)
 ![](./doc_imgs/outbid.png)
 
@@ -77,13 +77,13 @@ PORT=5001
 * Add the following line to your Express server (server/server.js): const serviceAccount = require("./firebase-adminsdk.json");
 
 ## Project Structure
-Auction_CSIS3380/
-├── client/                 # Frontend files
-├── server/                 # Backend server
-│   ├── server.js          # Main Express server for local dev
-│   └── auctioncsis3380-firebase-adminsdk.json  # Firebase SDK keys
-├── api/                   # Vercel serverless functions
-├── .env                   # Environment variables
+Auction_CSIS3380/ <br>
+├── client/                 # Frontend files<br>
+├── server/                 # Backend server<br>
+│   ├── server.js          # Main Express server for local dev<br>
+│   └── auctioncsis3380-firebase-adminsdk.json  # Firebase SDK keys<br>
+├── api/                   # Vercel serverless functions<br>
+├── .env                   # Environment variables<br>
 
 
 
