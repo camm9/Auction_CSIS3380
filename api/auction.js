@@ -137,7 +137,7 @@ async function endAuction(itemId, uid, endTime) {
                 if (winnerInfo && winnerInfo.email) {
                     await sendWinnerEmailNotification(
                         winnerInfo.email,
-                        "auction item", // You might want to get the actual item title
+                        item.title,
                         highestBid,
                         winnerInfo.displayName || winnerInfo.email
                     );
