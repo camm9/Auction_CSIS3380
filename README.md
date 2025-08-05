@@ -40,6 +40,8 @@ When you close an auction, your item listing is removed from the browse feature 
 
 ###### Notifications
 Users receive email notifications when they win an auction or win they are outbid on an item.
+![](./doc_imgs/winnernotification.png)
+![](./doc_imgs/outbid.png)
 
 
 #### Instructions to Run Locally
