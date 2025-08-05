@@ -51,6 +51,13 @@ Requirements: .env file
 3. Access from web browser using http://localhost:5001
 
 #### Instructions to Run on Vercel
+
+###### Deployment Framework Settings
+* Framework Preset: Other
+* Build Command: "npm run build"
+* Output Directory: "client"
+* Install Command: "npm install"
+* Add .env variables
 1. Vist https://auction-csis-3380.vercel.app/
 
 
